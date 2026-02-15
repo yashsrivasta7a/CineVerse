@@ -1,17 +1,18 @@
-import { useState, useEffect } from "react";
-import { View, Text, ActivityIndicator, FlatList, Image } from "react-native";
-import { MaterialIcons } from "@expo/vector-icons";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { View, Text, ActivityIndicator, FlatList, Image, TextInput } from "react-native";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 
 import { icons } from "@/constants/icons";
 import AuroraBackground from "../../components/AuroraBackground";
 
 import useFetch from "@/services/useFetch";
 import { fetchMovies } from "@/services/api";
-
 import SearchBar from "@/components/SearchBar";
 import MovieCard from "@/components/MovieCard";
+import { updateSearchcount } from "@/services/appwrite";
 
 const Search = () => {
+    const searchInputRef = useRef<TextInput>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const {
         data: movies = [],
@@ -28,7 +29,10 @@ const Search = () => {
     useEffect(() => {
         const timeoutId = setTimeout(async () => {
             if (searchQuery.trim()) {
-                await loadMovies();
+                const result = await loadMovies();
+                if (result && result.length > 0 && result[0]) {
+                    await updateSearchcount(searchQuery, result[0])
+                }
             } else {
                 reset();
             }
@@ -41,24 +45,26 @@ const Search = () => {
             <View className="absolute inset-0">
                 <AuroraBackground
                     colorStops={[
-                        "#2E1065",
-                        "#4C1D95",
-                        "#6D28D9",
-                        "#A78BFA"
+                        "#000000",
+                        "#1A1A1A",
+                        "#FF4500",
+                        "#121212"
                     ]}
                     blend={5}
                     amplitude={1.0}
-                    speed={1}
+                    speed={0.5}
                 />
             </View>
 
             <View className="flex-1 px-5">
+                {/* Modern Vector Logo */}
                 <View className="w-full flex-row justify-center mt-20 mb-5 items-center">
-                    <Image source={icons.logo} className="w-12 h-10" />
+                    <Image source={icons.logo} className="w-16 h-16" resizeMode="contain" />
                 </View>
 
                 <View className="mb-8">
                     <SearchBar
+                        ref={searchInputRef}
                         placeholder="Search for a movie"
                         value={searchQuery}
                         onChangeText={handleSearch}
@@ -69,14 +75,14 @@ const Search = () => {
                 {loading && (
                     <ActivityIndicator
                         size="large"
-                        color="#ffffff"
+                        color="#FF4500"
                         className="my-3"
                     />
                 )}
 
                 {error && (
                     <Text className="text-red-500 px-5 my-3 text-center">
-                        Error: {error.message}
+                        Error: {typeof error === 'string' ? error : (error as any).message || 'Unknown error'}
                     </Text>
                 )}
 
@@ -94,7 +100,7 @@ const Search = () => {
                             </View>
                         )}
                         ListHeaderComponent={
-                            searchQuery.trim() && movies?.length > 0 ? (
+                            searchQuery.trim() && (movies?.length ?? 0) > 0 ? (
                                 <Text className="text-xl text-white font-bold mb-4">
                                     Search Results for{" "}
                                     <Text className="text-accent">{searchQuery}</Text>

@@ -12,14 +12,18 @@ interface SearchBarProps {
 
 const SearchBar = ({ onPress, placeholder, value, onChangeText, autoFocus = false }: SearchBarProps) => {
     return (
-        <View className='flex-row items-center gap-2 bg-dark-200 border border-[#1e1e1e] rounded-full px-4 py-3'>
-            <Image source={icons.search} className="w-5 h-5" tintColor="#AB8BFF" />
+        <View className='flex-row items-center gap-2 bg-dark-200 border border-[#1e1e1e] rounded-full px-4 py-2'>
+            <Image source={icons.search} className="w-5 h-5" tintColor="#FF4500" />
 
             {onPress ? (
-                <Pressable onPress={onPress} className="flex-1 justify-center">
-                    <Text className="text-lg text-[#7d7d98] ml-2 font-medium">
-                        {value || placeholder}
-                    </Text>
+                <Pressable onPress={onPress} className="flex-1">
+                    <TextInput
+                        placeholder={placeholder}
+                        placeholderTextColor={'#7d7d98'}
+                        editable={false}
+                        pointerEvents="none"
+                        className='text-lg flex-1 ml-2 text-white font-medium'
+                    />
                 </Pressable>
             ) : (
                 <TextInput

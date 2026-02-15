@@ -11,12 +11,26 @@ const useFetch = <T>(fetchFunction: () => Promise<T>, autoFetch = true) => {
             setError(null);
             const result = await fetchFunction();
             setData(result);
+            return result;
         } catch (error) {
             setError(error instanceof Error ? error.message : 'An unknown error occurred')
+            return null;
         } finally {
             setLoading(false);
         }
     }
+
+    const silentRefetch = async () => {
+        try {
+            const result = await fetchFunction();
+            setData(result);
+            return result;
+        } catch (error) {
+            console.log(error);
+            return null;
+        }
+    }
+
     const reset = () => {
         setData(null);
         setError(null);
@@ -29,7 +43,7 @@ const useFetch = <T>(fetchFunction: () => Promise<T>, autoFetch = true) => {
         }
     }, [])
 
-    return { data, loading, error, refetch: fetchData, reset };
+    return { data, loading, error, refetch: fetchData, silentRefetch, reset };
 }
 
 export default useFetch;

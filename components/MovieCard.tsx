@@ -7,7 +7,7 @@ const MovieCard = ({ title, id, poster_path, vote_average, overview, release_dat
         <Link href={`/movies/${id}`} asChild>
             <TouchableOpacity className='w-full'>
                 <Image
-                    source={{ uri: poster_path ? `https://image.tmdb.org/t/p/w500${poster_path}` : 'https://placehold.com/600x400/1a1a1a/ffffff.png' }}
+                    source={{ uri: poster_path ? (poster_path.startsWith('http') ? poster_path : `https://image.tmdb.org/t/p/w500${poster_path}`) : 'https://placehold.com/600x400/1a1a1a/ffffff.png' }}
                     className="w-full aspect-[2/3] rounded-2xl"
                     resizeMode='cover'
                 />
@@ -17,7 +17,7 @@ const MovieCard = ({ title, id, poster_path, vote_average, overview, release_dat
                 </View>
                 <View className='px-1'>
                     <Text className='text-white text-xs'>{release_date?.split('-')[0]}</Text>
-                    <Text className='text-white text-xs'>{}</Text>
+                    <Text className='text-white text-xs'>{ }</Text>
                 </View>
             </TouchableOpacity>
         </Link>

@@ -6,10 +6,10 @@ import { Ionicons } from '@react-native-vector-icons/ionicons';
 const TabsIcon = ({ focused, icon, title }: { focused: boolean, icon: any, title: string }) => {
     if (focused) {
         return (
-            <ImageBackground source={images.highlight} className="flex flex-row w-full flex-1 min-w-[120px] min-h-16 mt-7 items-center justify-center rounded-full overflow-hidden" >
+            <View className="flex flex-row w-full flex-1 min-w-[120px] min-h-16 mt-7 items-center justify-center rounded-full overflow-hidden bg-accent" >
                 <Ionicons name={icon} color="#151312" size={20} />
                 <Text className="text-secondary text-base font-semibold ml-2">{title}</Text>
-            </ImageBackground>
+            </View>
         )
     }
     else {
@@ -32,7 +32,7 @@ export default function Layout() {
                 alignItems: 'center'
             }
             , tabBarStyle: {
-                backgroundColor: "#0f0D23",
+                backgroundColor: "#121212",
                 height: 62,
                 paddingHorizontal: 20,
                 marginBottom: 36,
@@ -41,7 +41,7 @@ export default function Layout() {
                 position: "absolute",
                 overflow: "hidden",
                 borderWidth: 1,
-                borderColor: "#0f0D23"
+                borderColor: "#121212"
             }
         }}>
             <Tabs.Screen name="index" options={{
