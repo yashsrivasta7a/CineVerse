@@ -30,19 +30,19 @@ export default function Index() {
           colorStops={[
             "#000000",
             "#1A1A1A",
-            "#FF4500", // Subtle fire glow
+            "#FF4500",
             "#121212"
           ]}
           blend={5}
           amplitude={1.0}
-          speed={0.5} // Slower, more elegant speed
+          speed={0.5}
         />
       </View>
 
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} >
         <View className="px-5">
-          {/* Modern Vector Logo */}
+
           <View className="w-full flex-row justify-center mt-20 mb-5 items-center">
             <Image source={icons.logo} className="w-16 h-16" resizeMode="contain" />
           </View>
@@ -76,7 +76,7 @@ export default function Index() {
             <>
               <View className="flex-row justify-between items-center mb-4">
                 <Text className="text-white text-xl font-bold">Latest Movies</Text>
-                <Text className="text-accent text-sm font-medium">View All</Text>
+
               </View>
               <View style={{ paddingBottom: 90 }}>
                 <View className="flex-row flex-wrap justify-between gap-y-6">

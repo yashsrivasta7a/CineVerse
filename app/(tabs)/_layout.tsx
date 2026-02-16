@@ -1,7 +1,8 @@
 import { images } from "@/constants/images";
-import { Tabs } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
 import { ImageBackground, Text, View } from "react-native";
 import { Ionicons } from '@react-native-vector-icons/ionicons';
+import { useAuth } from '@clerk/clerk-expo';
 
 const TabsIcon = ({ focused, icon, title }: { focused: boolean, icon: any, title: string }) => {
     if (focused) {
@@ -23,6 +24,12 @@ const TabsIcon = ({ focused, icon, title }: { focused: boolean, icon: any, title
 }
 
 export default function Layout() {
+    const { isSignedIn } = useAuth()
+
+    if (!isSignedIn) {
+        return <Redirect href="/sign-in" />
+    }
+
     return (
         <Tabs screenOptions={{
             tabBarShowLabel: false, tabBarItemStyle: {

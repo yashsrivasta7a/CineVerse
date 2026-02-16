@@ -1,3 +1,5 @@
+import { getBookmarks } from '@/services/appwrite';
+
 export const TMDB_CONFIG = {
     BASE_URL: 'https://api.themoviedb.org/3',
     API_KEY: process.env.EXPO_PUBLIC_MOVIE_API_KEY,
@@ -53,3 +55,23 @@ export const fetchMovieDetails = async (
     }
 };
 
+
+export const fetchBookmarkedMovies = async (userId: string): Promise<MovieDetails[]> => {
+    try {
+        const bookmarks = await getBookmarks(userId);
+
+        if (!bookmarks || bookmarks.length === 0) {
+            return [];
+        }
+
+        const moviePromises = bookmarks.map(bookmark =>
+            fetchMovieDetails(bookmark.movieId.toString())
+        );
+
+        const movies = await Promise.all(moviePromises);
+        return movies;
+    } catch (error) {
+        console.error("Error fetching bookmarked movies:", error);
+        return [];
+    }
+};

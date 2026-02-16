@@ -46,17 +46,80 @@ export const updateSearchcount = async (query: string, movie: Movie) => {
     } catch (error) {
         console.log(error)
     }
-} 
-
-export const getTrendingMovies = async():Promise<TrendingMovie[] | undefined>=>{
-try {
-    const result = await database.listDocuments(DATABASE_id, COLLECTION_ID, [
-        Query.orderDesc('count'),
-        Query.limit(4)
-    ])
-    return result.documents as unknown as TrendingMovie[]
-} catch (error) {
-    console.log(error)
-    return undefined
 }
+
+export const getTrendingMovies = async (): Promise<TrendingMovie[] | undefined> => {
+    try {
+        const result = await database.listDocuments(DATABASE_id, COLLECTION_ID, [
+            Query.orderDesc('count'),
+            Query.limit(4)
+        ])
+        return result.documents as unknown as TrendingMovie[]
+    } catch (error) {
+        console.log(error)
+        return undefined
+    }
+}
+
+const BOOKMARK_COLLECTION_ID = 'bookmarks';
+
+export const addBookmark = async (user_id: string, movie: MovieDetails) => {
+    try {
+        await database.createDocument(DATABASE_id, BOOKMARK_COLLECTION_ID, ID.unique(), {
+            userId: user_id,
+            movieId: movie.id,
+            title: movie.title,
+            bookmarkId: Date.now(),
+            createdDate: new Date().toISOString(),
+
+        })
+        return true;
+    } catch (error) {
+        console.error("Error adding bookmark:", error);
+        return false;
+    }
+}
+
+export const removeBookmark = async (user_id: string, movie_id: number) => {
+    try {
+        const result = await database.listDocuments(DATABASE_id, BOOKMARK_COLLECTION_ID, [
+            Query.equal('userId', user_id),
+            Query.equal('movieId', movie_id)
+        ]);
+
+        if (result.documents.length > 0) {
+            await database.deleteDocument(DATABASE_id, BOOKMARK_COLLECTION_ID, result.documents[0].$id);
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error("Error removing bookmark:", error);
+        return false;
+    }
+}
+
+export const checkIfBookmarked = async (user_id: string, movie_id: number) => {
+    try {
+        const result = await database.listDocuments(DATABASE_id, BOOKMARK_COLLECTION_ID, [
+            Query.equal('userId', user_id),
+            Query.equal('movieId', movie_id)
+        ]);
+        return result.documents.length > 0;
+    } catch (error) {
+        console.error("Error checking bookmark:", error);
+        return false;
+    }
+}
+
+export const getBookmarks = async (user_id: string) => {
+    try {
+        const result = await database.listDocuments(DATABASE_id, BOOKMARK_COLLECTION_ID, [
+            Query.equal('userId', user_id),
+            Query.orderDesc('createdDate')
+        ]);
+        return result.documents;
+    } catch (error) {
+        console.error("Error fetching bookmarks:", error);
+        return [];
+    }
 }

@@ -1,50 +1,104 @@
-# Welcome to your Expo app 👋
+# 🎬 Cine-Verse
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Cine-Verse** is a modern, feature-rich movie discovery application built with **React Native (Expo)**. It helps users explore trending movies, search for their favorites, view detailed information, and find where to stream content.
 
-## Get started
+The app features a sleek, dark-themed UI powered by **NativeWind**, robust state management with **React Query**, and seamless backend integration using **Appwrite** and **Clerk**.
 
-1. Install dependencies
+## ✨ Features
 
-   ```bash
-   npm install
-   ```
+- **🔥 Trending Movies**: Browse the latest and most popular movies updated in real-time.
+- **🔍 Search Functionality**: Powerful search to find movies by title.
+- **📄 Detailed Insights**: View movie overviews, cast, crew, ratings, and runtime.
+- **📺 Streaming Availability**: innovative "Where to Watch" feature showing streaming services (Netflix, Prime, etc.) specific to your region (powered by Watchmode).
+- **🔖 Watchlist**: Save your favorite movies to your personal watchlist (synced via Appwrite).
+- **🔐 User Authentication**: Secure sign-up and sign-in flow using Clerk.
+- **🎨 Modern UI**: Beautiful dark mode interface with smooth animations and gradients.
 
-2. Start the app
+## 🛠️ Tech Stack
 
-   ```bash
-   npx expo start
-   ```
+- **Framework**: [React Native](https://reactnative.dev/) with [Expo](https://expo.dev/)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Styling**: [NativeWind](https://www.nativewind.dev/) (Tailwind CSS for React Native)
+- **State Management**: [TanStack Query](https://tanstack.com/query/latest) (React Query)
+- **Authentication**: [Clerk](https://clerk.com/)
+- **Backend / Database**: [Appwrite](https://appwrite.io/)
+- **APIs**:
+  - [TMDB (The Movie Database)](https://www.themoviedb.org/) for movie data.
+  - [Watchmode](https://www.watchmode.com/) for streaming availability.
 
-In the output, you'll find options to open the app in a
+## 🚀 Getting Started
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+Follow these steps to set up and run the project locally.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Prerequisites
 
-## Get a fresh project
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- [Expo Go](https://expo.dev/client) app on your iOS/Android device (or an emulator).
 
-When you're ready, run:
+### Installation
+
+1.  **Clone the repository:**
+
+    ```bash
+    git clone https://github.com/your-username/cine-verse.git
+    cd cine-verse
+    ```
+
+2.  **Install dependencies:**
+
+    ```bash
+    npm install
+    ```
+
+3.  **Environment Setup:**
+
+    Create a `.env` file in the root directory and add your API keys:
+
+    ```env
+    EXPO_PUBLIC_Appwrite_PROJECT_ID=your_appwrite_project_id
+    EXPO_PUBLIC_APPWRITE_PROJECT_NAME=your_project_name
+    EXPO_PUBLIC_APPWRITE_ENDPOINT=your_appwrite_endpoint
+    EXPO_PUBLIC_APPWRITE_DATABASE_ID=your_database_id
+    EXPO_PUBLIC_APPWRITE_COLLECTION_ID=your_collection_id
+    
+    EXPO_PUBLIC_MOVIE_API_KEY=your_tmdb_api_key
+    EXPO_PUBLIC_WATCH_MODE_API_KEY=your_watchmode_api_key
+    EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+    ```
+
+### Running the App
+
+Start the development server:
 
 ```bash
-npm run reset-project
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+- **Scan the QR code** with the Expo Go app (Android) or Camera app (iOS).
+- Press `a` to open in an **Android Emulator**.
+- Press `i` to open in an **iOS Simulator**.
+- Press `w` to open in the **Web Browser**.
 
-## Learn more
+## 📂 Project Structure
 
-To learn more about developing your project with Expo, look at the following resources:
+```
+cine-verse/
+├── app/                  # Expo Router pages and layouts
+│   ├── (auth)/           # Authentication screens
+│   ├── (tabs)/           # Main tab navigation (Home, Search, Profile)
+│   ├── movies/           # Movie detail pages
+│   └── _layout.tsx       # Root layout provider
+├── components/           # Reusable UI components (MovieCard, SearchBar, etc.)
+├── services/             # API services (TMDB, Watchmode, Appwrite)
+├── constants/            # App constants (icons, images, themes)
+├── assets/               # Static assets (images, fonts)
+└── ...
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 🤝 Contributing
 
-## Join the community
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-Join our community of developers creating universal apps.
+## 📄 License
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+This project is licensed under the MIT License.

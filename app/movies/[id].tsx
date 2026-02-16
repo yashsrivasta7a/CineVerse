@@ -1,6 +1,6 @@
 
 import { View, Text, Image, ScrollView, ActivityIndicator, TouchableOpacity, Linking, Platform, StatusBar } from 'react-native'
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import useFetch from '@/services/useFetch'
 import { fetchMovieDetails } from '@/services/api'
@@ -8,12 +8,53 @@ import { icons } from '@/constants/icons'
 import { Ionicons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useUser } from '@clerk/clerk-expo'
+import { addBookmark, removeBookmark, checkIfBookmarked } from '@/services/appwrite'
+
+import { getStreamingServices, useStreamingServices } from '@/services/watchmode'
+import { TitleSource } from '@watchmode/api-client'
 
 const MovieDetails = () => {
     const { id } = useLocalSearchParams()
     const router = useRouter()
     const { data: movie, loading, error } = useFetch(() => fetchMovieDetails(id as string))
     const insets = useSafeAreaInsets();
+    const { user } = useUser();
+
+    const [isBookmarked, setIsBookmarked] = useState(false);
+    const [bookmarkLoading, setBookmarkLoading] = useState(false);
+
+    const { data: streamingServices = [], isLoading: streamingLoading } = useStreamingServices(id as string, 'movie');
+
+    useEffect(() => {
+        const checkBookmarkStatus = async () => {
+            if (user?.id && movie?.id) {
+                const bookmarked = await checkIfBookmarked(user.id, movie.id);
+                setIsBookmarked(bookmarked);
+            }
+        };
+
+        checkBookmarkStatus();
+    }, [user?.id, movie?.id]);
+
+    const updateBookmarks = async () => {
+        if (!user || !movie) return;
+
+        setBookmarkLoading(true);
+        try {
+            if (isBookmarked) {
+                await removeBookmark(user.id, movie.id);
+                setIsBookmarked(false);
+            } else {
+                await addBookmark(user.id, movie);
+                setIsBookmarked(true);
+            }
+        } catch (error) {
+            console.error("Failed to update bookmark", error);
+        } finally {
+            setBookmarkLoading(false);
+        }
+    };
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('en-US', {
@@ -52,6 +93,14 @@ const MovieDetails = () => {
                 className="absolute bg-black/60 rounded-full p-3 backdrop-blur-md border border-white/20 shadow-lg"
             >
                 <Ionicons name="arrow-back" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+                onPress={updateBookmarks}
+                disabled={bookmarkLoading}
+                style={{ top: Platform.OS === 'ios' ? insets.top : insets.top + 10, right: 16, zIndex: 100 }}
+                className="absolute bg-black/60 rounded-full p-3 backdrop-blur-md border border-white/20 shadow-lg"
+            >
+                <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={28} color="#FFFFFF" />
             </TouchableOpacity>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
@@ -157,6 +206,51 @@ const MovieDetails = () => {
                         <View className="bg-dark-100 p-5 rounded-2xl border border-white/5 space-y-3">
                             <Text className="text-accent text-lg font-bold">Overview</Text>
                             <Text className="text-light-200 text-base leading-relaxed tracking-wide">{movie.overview}</Text>
+                        </View>
+                    )}
+
+
+                    {streamingServices.length > 0 && (
+                        <View className="bg-dark-100/80 p-4 rounded-2xl border border-white/5">
+                            <Text className="text-accent text-base font-semibold mb-3">
+                                Where to Watch
+                            </Text>
+
+                            <View className="flex-row flex-wrap gap-3">
+                                {streamingServices.map((service, index) => (
+                                    <TouchableOpacity
+                                        key={`${service.source_id}-${index}`}
+                                        activeOpacity={0.85}
+                                        onPress={() => service.web_url && Linking.openURL(service.web_url)}
+                                        className="bg-white/5 border border-white/10 px-4 py-3 rounded-xl w-[48%]"
+                                    >
+                                        {/* Service Name */}
+                                        <Text
+                                            numberOfLines={1}
+                                            className="text-white font-semibold text-sm"
+                                        >
+                                            {service.name}
+                                        </Text>
+
+                                        {/* Meta Row */}
+                                        <View className="flex-row items-center mt-2 justify-between">
+                                            {/* Type */}
+                                            <View className="bg-accent/15 px-2 py-0.5 rounded-md">
+                                                <Text className="text-accent text-[10px] uppercase font-bold">
+                                                    {service.type}
+                                                </Text>
+                                            </View>
+
+                                            {/* Price */}
+                                            {service.price && (
+                                                <Text className="text-light-300 text-xs font-medium">
+                                                    {formatCurrency(service.price)}
+                                                </Text>
+                                            )}
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
                         </View>
                     )}
 
@@ -283,8 +377,8 @@ const MovieDetails = () => {
                     {/* Bottom Spacer */}
                     <View className="h-6" />
                 </View>
-            </ScrollView>
-        </View>
+            </ScrollView >
+        </View >
     )
 }
 
