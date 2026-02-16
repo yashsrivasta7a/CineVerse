@@ -9,15 +9,19 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yashsrivasta7a.cineverse",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-       
         "foregroundImage": "./assets/images/logo.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.yashsrivasta7a.cineverse"
     },
     "web": {
       "output": "static",
@@ -41,6 +45,18 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "58be218d-2ba1-4d24-88d5-fcef5cb0a2e9"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/58be218d-2ba1-4d24-88d5-fcef5cb0a2e9"
     }
   }
 }
