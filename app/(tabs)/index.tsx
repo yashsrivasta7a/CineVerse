@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import AuroraBackground from "../../components/AuroraBackground"
-import { ActivityIndicator, Image, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { icons } from "@/constants/icons";
 import SearchBar from "../../components/SearchBar";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -10,9 +10,11 @@ import MovieCard from "@/components/MovieCard";
 import { getTrendingMovies } from "@/services/appwrite";
 import TrendingMovieCard from "../../components/TrendingCard";
 import { Ionicons } from "@expo/vector-icons";
+import { useUser } from "@clerk/clerk-expo";
 
 export default function Index() {
   const router = useRouter();
+  const { user } = useUser();
   const { data: trendingMovies, loading: trendingLoading, error: trendingError, silentRefetch: silentRefetchTrending } = useFetch(getTrendingMovies)
   const { data: movies, loading: moviesLoading, error: moviesError } = useFetch(() => fetchMovies({ query: '' }));
 
@@ -33,7 +35,7 @@ export default function Index() {
             "#FF4500",
             "#121212"
           ]}
-          blend={5}
+          blend={7}
           amplitude={1.0}
           speed={0.5}
         />
@@ -43,8 +45,36 @@ export default function Index() {
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} >
         <View className="px-5">
 
-          <View className="w-full flex-row justify-center mt-20 mb-5 items-center">
+          {/* Header with logo and profile avatar */}
+          <View className="w-full flex-row justify-between mt-16 mb-5 items-center">
+            <View style={{ width: 40 }} />
             <Image source={icons.logo} className="w-16 h-16" resizeMode="contain" />
+            <TouchableOpacity
+              onPress={() => router.push('/profile')}
+              activeOpacity={0.8}
+            >
+              {user?.imageUrl ? (
+                <Image
+                  source={{ uri: user.imageUrl }}
+                  className="w-10 h-10 rounded-full"
+                  style={{
+                    borderWidth: 2,
+                    borderColor: 'rgba(255, 69, 0, 0.5)',
+                  }}
+                />
+              ) : (
+                <View
+                  className="w-10 h-10 rounded-full items-center justify-center"
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    borderWidth: 2,
+                    borderColor: 'rgba(255, 69, 0, 0.5)',
+                  }}
+                >
+                  <Ionicons name="person" size={18} color="#FF4500" />
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
 
           <View className="mb-8">
@@ -52,32 +82,66 @@ export default function Index() {
           </View>
           {moviesLoading || trendingLoading ? (<ActivityIndicator size="large" color="#FF4500" className="mt-10 self-center" />) : moviesError || trendingError ? <Text className="text-white text-center mt-10">Something went wrong</Text> : <View className="flex-1">
             {trendingMovies && (
-              <View className=" mb-6">
-                <View className="flex-row items-center gap-2 mb-1">
-                  <Text className="text-white text-lg font-bold tracking-wide">Top Trending</Text>
-                  <Text style={{ fontSize: 16 }}>🔥</Text>
-                </View>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerClassName="pr-6"
-                >
-                  {trendingMovies.map((item: any, index: number) => (
-                    <View
-                      key={`${item.movie_id}-${index}`}
-                      className="mr-3 w-[120px]"
-                    >
-                      <TrendingMovieCard movie={item} index={index} />
+              <View className="mb-8">
+                {/* Premium Section Header */}
+                <View className="flex-row items-center justify-between mb-5">
+                  <View>
+                    <View className="flex-row items-center gap-2 mb-1">
+                      <Text className="text-white text-xl font-black tracking-tight">Top Trending</Text>
+                      <Text style={{ fontSize: 18 }}>🔥</Text>
                     </View>
-                  ))}
-                </ScrollView>
+                    <Text className="text-white/30 text-xs font-medium">Most searched movies right now</Text>
+                  </View>
+                </View>
+
+                {/* Horizontal divider */}
+                <View
+                  className="mb-5"
+                  style={{
+                    height: 1,
+                    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                  }}
+                />
+
+                {/* Full-bleed Carousel */}
+                <View style={{ marginHorizontal: -20 }}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    decelerationRate="fast"
+                    contentContainerStyle={{
+                      paddingHorizontal: 20,
+                      gap: 16,
+                    }}
+                  >
+                    {trendingMovies.map((item: any, index: number) => (
+                      <TrendingMovieCard
+                        key={`${item.movie_id}-${index}`}
+                        movie={item}
+                        index={index}
+                      />
+                    ))}
+                  </ScrollView>
+                </View>
               </View>
             )}
             <>
-              <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-white text-xl font-bold">Latest Movies</Text>
-
+              <View className="flex-row justify-between items-center mb-5">
+                <View>
+                  <View className="flex-row items-center gap-2 mb-1">
+                    <Text className="text-white text-xl font-black tracking-tight">Latest Movies</Text>
+                    <Text style={{ fontSize: 18 }}>🎬</Text>
+                  </View>
+                  <Text className="text-white/30 text-xs font-medium">Fresh releases for you</Text>
+                </View>
               </View>
+              <View
+                className="mb-4"
+                style={{
+                  height: 1,
+                  backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                }}
+              />
               <View style={{ paddingBottom: 90 }}>
                 <View className="flex-row flex-wrap justify-between gap-y-6">
                   {movies?.map((item: any) => (

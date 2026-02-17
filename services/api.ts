@@ -75,3 +75,29 @@ export const fetchBookmarkedMovies = async (userId: string): Promise<MovieDetail
         return [];
     }
 };
+
+export const fetchUpcomingMovies = async (): Promise<Movie[]> => {
+    const allMovies: Movie[] = [];
+
+    // Fetch multiple pages to get more upcoming months
+    for (let page = 1; page <= 3; page++) {
+        const endpoint = `${TMDB_CONFIG.BASE_URL}/movie/upcoming?language=en-US&page=${page}`;
+
+        const response = await fetch(endpoint, {
+            method: "GET",
+            headers: TMDB_CONFIG.headers,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch upcoming movies: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        allMovies.push(...data.results);
+
+        // Stop if we've reached the last page
+        if (page >= data.total_pages) break;
+    }
+
+    return allMovies;
+};

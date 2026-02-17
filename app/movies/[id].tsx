@@ -142,7 +142,7 @@ const MovieDetails = () => {
                         )}
 
                         <View className="flex-row justify-center gap-4 mt-4 w-full px-2">
-                            {movie?.vote_average && (
+                            {movie?.vote_average ? (
                                 <View className="flex-1 items-center bg-dark-100/80 py-4 rounded-2xl border border-white/10 backdrop-blur-xl shadow-lg">
                                     <View className="bg-yellow-500/20 p-3 rounded-full mb-2">
                                         <Ionicons name="star" size={24} color="#FFD700" />
@@ -154,9 +154,9 @@ const MovieDetails = () => {
                                         {movie.vote_count} votes
                                     </Text>
                                 </View>
-                            )}
+                            ) : null}
 
-                            {movie?.runtime && (
+                            {movie?.runtime ? (
                                 <View className="flex-1 items-center bg-dark-100/80 py-4 rounded-2xl border border-white/10 backdrop-blur-xl shadow-lg">
                                     <View className="bg-white/10 p-3 rounded-full mb-2">
                                         <Ionicons name="time" size={24} color="#E0E0E0" />
@@ -168,7 +168,7 @@ const MovieDetails = () => {
                                         Duration
                                     </Text>
                                 </View>
-                            )}
+                            ) : null}
 
                             {movie?.release_date && (
                                 <View className="flex-1 items-center bg-dark-100/80 py-4 rounded-2xl border border-white/10 backdrop-blur-xl shadow-lg">
@@ -179,7 +179,7 @@ const MovieDetails = () => {
                                         {movie.release_date.split('-')[0]}
                                     </Text>
                                     <Text className="text-light-300 text-xs font-medium mt-1">
-                                        Released
+                                        Release Year
                                     </Text>
                                 </View>
                             )}
@@ -259,11 +259,6 @@ const MovieDetails = () => {
                         <Text className="text-accent text-lg font-bold mb-4">Details</Text>
 
                         <View className="flex-row flex-wrap justify-between gap-y-4">
-                            {/* Status */}
-                            <View className="w-[48%] bg-primary/40 p-3 rounded-xl border border-white/5">
-                                <Text className="text-light-300 text-xs mb-1 font-medium">Status</Text>
-                                <Text className="text-white font-semibold">{movie?.status || 'N/A'}</Text>
-                            </View>
 
                             {/* Original Language */}
                             <View className="w-[48%] bg-primary/40 p-3 rounded-xl border border-white/5">

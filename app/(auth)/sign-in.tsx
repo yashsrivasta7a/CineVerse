@@ -1,5 +1,5 @@
-import { useSSO } from '@clerk/clerk-expo'
-import * as AuthSession from 'expo-auth-session'
+import { useOAuth } from '@clerk/clerk-expo'
+import * as Linking from 'expo-linking'
 import { Link, useRouter } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
 import React, { useCallback, useEffect, useState } from 'react'
@@ -30,7 +30,7 @@ WebBrowser.maybeCompleteAuthSession()
 export default function SignInScreen() {
     useWarmUpBrowser()
     const router = useRouter()
-    const { startSSOFlow } = useSSO()
+    const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
@@ -39,28 +39,52 @@ export default function SignInScreen() {
             setLoading(true)
             setError('')
 
-            const { createdSessionId, setActive } = await startSSOFlow({
-                strategy: 'oauth_google',
-                redirectUrl: AuthSession.makeRedirectUri({
-                    scheme: 'cineverse',
-                }),
+            // Get ALL values from the OAuth result — including signIn & signUp
+            const { createdSessionId, signIn, signUp, setActive } = await startOAuthFlow({
+                redirectUrl: Linking.createURL('/'),
             })
 
-            if (createdSessionId) {
-                setActive!({
-                    session: createdSessionId,
-                    navigate: async ({ session }) => {
-                        if (session?.currentTask) {
-                            console.log(session?.currentTask)
-                            return
-                        }
-                        router.replace('/')
-                    },
-                })
-            } else {
-                setError('Sign in was not completed. Please try again.')
+            console.log('=== OAuth Debug ===')
+            console.log('createdSessionId:', createdSessionId)
+            console.log('signIn?.status:', signIn?.status)
+            console.log('signUp?.status:', signUp?.status)
+
+            // Case 1: Session created directly (works for new accounts)
+            if (createdSessionId && setActive) {
+                await setActive({ session: createdSessionId })
+                router.replace('/')
+                return
             }
+
+            // Case 2: Existing account — signUp has 'transferable' status
+            // Must transfer to signIn to complete the flow
+            if ((signUp?.status as string) === 'transferable' && signIn) {
+                console.log('Transfer: signUp -> signIn')
+                const response = await signIn.create({ transfer: true })
+                if (response.createdSessionId && setActive) {
+                    await setActive({ session: response.createdSessionId })
+                    router.replace('/')
+                    return
+                }
+            }
+
+            // Case 3: Reverse transfer
+            if ((signIn?.status as string) === 'transferable' && signUp) {
+                console.log('Transfer: signIn -> signUp')
+                const response = await signUp.create({ transfer: true })
+                if (response.createdSessionId && setActive) {
+                    await setActive({ session: response.createdSessionId })
+                    router.replace('/')
+                    return
+                }
+            }
+
+            // If we reach here, nothing worked
+            console.log('No session created. signIn:', JSON.stringify(signIn, null, 2))
+            console.log('No session created. signUp:', JSON.stringify(signUp, null, 2))
+            setError('Sign in was not completed. Please try again.')
         } catch (err: any) {
+            console.error('OAuth error:', err)
             const message =
                 err?.errors?.[0]?.longMessage ||
                 err?.errors?.[0]?.message ||
@@ -69,7 +93,7 @@ export default function SignInScreen() {
         } finally {
             setLoading(false)
         }
-    }, [startSSOFlow, router])
+    }, [startOAuthFlow, router])
 
     return (
         <View className="flex-1 bg-black">

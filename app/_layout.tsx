@@ -1,7 +1,7 @@
 import { Stack } from "expo-router";
 import "./global.css";
 import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-expo'
-import { tokenCache } from '@clerk/clerk-expo/token-cache'
+import { tokenCache } from '@/lib/auth-storage'
 import { StatusBar } from "expo-status-bar";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 

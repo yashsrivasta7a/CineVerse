@@ -1,5 +1,5 @@
-import { useSSO } from '@clerk/clerk-expo'
-import * as AuthSession from 'expo-auth-session'
+import { useOAuth } from '@clerk/clerk-expo'
+import * as Linking from 'expo-linking'
 import { Link, useRouter } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
 import React, { useCallback, useEffect, useState } from 'react'
@@ -30,7 +30,8 @@ WebBrowser.maybeCompleteAuthSession()
 export default function SignUpScreen() {
     useWarmUpBrowser()
     const router = useRouter()
-    const { startSSOFlow } = useSSO()
+    const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' })
+
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
@@ -39,28 +40,47 @@ export default function SignUpScreen() {
             setLoading(true)
             setError('')
 
-            const { createdSessionId, setActive } = await startSSOFlow({
-                strategy: 'oauth_google',
-                redirectUrl: AuthSession.makeRedirectUri({
-                    scheme: 'cineverse',
-                }),
+            const { createdSessionId, signIn, signUp, setActive } = await startOAuthFlow({
+                redirectUrl: Linking.createURL('/'),
             })
 
-            if (createdSessionId) {
-                setActive!({
-                    session: createdSessionId,
-                    navigate: async ({ session }) => {
-                        if (session?.currentTask) {
-                            console.log(session?.currentTask)
-                            return
-                        }
-                        router.replace('/')
-                    },
-                })
-            } else {
-                setError('Sign up was not completed. Please try again.')
+            console.log('=== SignUp OAuth Debug ===')
+            console.log('createdSessionId:', createdSessionId)
+            console.log('signIn?.status:', signIn?.status)
+            console.log('signUp?.status:', signUp?.status)
+
+            // Case 1: OAuth created a session directly (new account)
+            if (createdSessionId && setActive) {
+                await setActive({ session: createdSessionId })
+                router.replace('/')
+                return
             }
+
+            // Case 2: Existing account - signUp returns 'transferable' status
+            if ((signUp?.status as string) === 'transferable' && signIn) {
+                console.log('Transferring OAuth to existing signIn...')
+                const response = await signIn.create({ transfer: true })
+                if (response.createdSessionId && setActive) {
+                    await setActive({ session: response.createdSessionId })
+                    router.replace('/')
+                    return
+                }
+            }
+
+            // Case 3: signIn returns 'transferable' status
+            if ((signIn?.status as string) === 'transferable' && signUp) {
+                console.log('Transferring OAuth to signUp...')
+                const response = await signUp.create({ transfer: true })
+                if (response.createdSessionId && setActive) {
+                    await setActive({ session: response.createdSessionId })
+                    router.replace('/')
+                    return
+                }
+            }
+
+            setError('Sign up was not completed. Please try again.')
         } catch (err: any) {
+            console.error('OAuth error:', err)
             const message =
                 err?.errors?.[0]?.longMessage ||
                 err?.errors?.[0]?.message ||
@@ -69,7 +89,7 @@ export default function SignUpScreen() {
         } finally {
             setLoading(false)
         }
-    }, [startSSOFlow, router])
+    }, [startOAuthFlow, router])
 
     return (
         <View className="flex-1 bg-black">
