@@ -3,6 +3,7 @@ import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   addBookmarkLocal,
+  clearFlicksBookmarks,
   isBookmarked,
   listBookmarks,
   markBookmarkSynced,
@@ -107,12 +108,31 @@ export function useBookmarkedMovies(userId: string | undefined) {
     staleTime: 1000 * 60,
   });
 
-  const movieIds = useMemo(
-    () =>
-      (local.data ?? [])
-        .filter((row) => row.media_type === 'movie')
-        .map((row) => row.tmdb_id),
+  const movieRows = useMemo(
+    () => (local.data ?? []).filter((row) => row.media_type === 'movie'),
     [local.data]
+  );
+
+  const movieIds = useMemo(
+    () => movieRows.map((row) => row.tmdb_id),
+    [movieRows]
+  );
+
+  /**
+   * Ids the deck saved automatically.
+   *
+   * Rows written before the `source` column existed read as `manual`, which is
+   * the right default — they predate auto-saving, so a user who saved them did
+   * so deliberately.
+   */
+  const flicksIds = useMemo(
+    () =>
+      new Set(
+        movieRows
+          .filter((row) => row.source === 'flicks')
+          .map((row) => row.tmdb_id)
+      ),
+    [movieRows]
   );
 
   const detailQueries = useQueries({
@@ -137,8 +157,17 @@ export function useBookmarkedMovies(userId: string | undefined) {
     void sync.refetch();
   }, [local, sync]);
 
+  const clearFromFlicks = useCallback(() => {
+    clearFlicksBookmarks();
+    void queryClient.invalidateQueries({ queryKey: qk.bookmarksLocal() });
+  }, [queryClient]);
+
   return {
     movies,
+    /** Which of `movies` arrived from a right-swipe rather than a deliberate save. */
+    flicksIds,
+    /** Tombstones every deck-saved bookmark, leaving hand-picked ones alone. */
+    clearFromFlicks,
     isPending:
       local.isPending ||
       (movieIds.length > 0 && detailQueries.some((query) => query.isPending)),

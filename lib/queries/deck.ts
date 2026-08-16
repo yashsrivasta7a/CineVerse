@@ -1,16 +1,31 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 
 import { discoverMoviesPage } from '@/lib/api/tmdb/discover';
 import { normalizeMovie } from '@/lib/api/tmdb/normalize';
 import type { Title } from '@/lib/api/tmdb/types';
 import { paramsFromPrefs } from '@/lib/recommend/params';
+import { weighVerdicts } from '@/lib/recommend/rank';
 import { usePrefs } from '@/lib/store/prefs';
-import { getVerdictIds, recordVerdict, type Verdict } from '@/db/queries/verdicts';
+import { addBookmarkLocal } from '@/db/queries/bookmarks';
+import {
+  getTasteSignals,
+  getVerdictIds,
+  recordVerdict,
+  type Verdict,
+} from '@/db/queries/verdicts';
 import { qk } from './keys';
 
 /** Refill when fewer than this many unjudged cards remain. */
 const REFILL_THRESHOLD = 8;
+
+/** One of the deck's four outcomes. */
+export interface DeckVerdict {
+  verdict: Verdict;
+  /** The user marked the title as one they had already watched. */
+  seen: boolean;
+  reaction?: string;
+}
 
 export interface DeckController {
   cards: Title[];
@@ -20,7 +35,7 @@ export interface DeckController {
   isRefilling: boolean;
   /** No more results anywhere — the preference set is exhausted. */
   isExhausted: boolean;
-  commit: (title: Title, verdict: Verdict, reaction?: string) => void;
+  commit: (title: Title, outcome: DeckVerdict) => void;
   blockedPeople: number[];
   excludeCountries: string[];
 }
@@ -39,10 +54,22 @@ export interface DeckController {
  */
 export function useDeck(moodIndex?: number | null): DeckController {
   const entries = usePrefs((state) => state.entries);
+  const queryClient = useQueryClient();
+
+  /**
+   * Learned taste, resolved once per mount and then deliberately frozen.
+   *
+   * It feeds `with_genres`/`without_genres`, which feed the params hash, which
+   * is the deck query's cache key. Recomputing it per swipe would change that
+   * key mid-session — throwing away every fetched page and restarting the deck
+   * from page 1 under the user's thumb. Learning lands on the next visit
+   * instead, which is the only cadence at which it is not destructive.
+   */
+  const [learned] = useState(() => weighVerdicts(getTasteSignals('movie')));
 
   const resolved = useMemo(
-    () => paramsFromPrefs(entries, moodIndex),
-    [entries, moodIndex]
+    () => paramsFromPrefs(entries, moodIndex, learned),
+    [entries, moodIndex, learned]
   );
 
   // Lazy initialiser: the SQL read runs once per mount, not on every render.
@@ -88,16 +115,32 @@ export function useDeck(moodIndex?: number | null): DeckController {
   }
 
   const commit = useCallback(
-    (title: Title, verdict: Verdict, reaction?: string) => {
-      // Written synchronously — the deck must never await the network.
-      recordVerdict('movie', title.id, verdict, reaction);
+    (title: Title, outcome: DeckVerdict) => {
+      // Written synchronously — the deck must never await the network. The
+      // card's genres go in with it, so ranking never has to fetch them back.
+      recordVerdict('movie', title.id, outcome.verdict, {
+        seen: outcome.seen,
+        genreIds: title.genreIds,
+        reaction: outcome.reaction,
+      });
+
+      // Interested — and only interested — saves. "Watched and liked" is a
+      // taste signal about a film the user has already seen; filing it in the
+      // Vault would be telling them to go and watch it again.
+      if (outcome.verdict === 'up' && !outcome.seen) {
+        addBookmarkLocal('movie', title.id, title.title, 'flicks');
+        // `bookmarkOne` nests under `bookmarksLocal`, so this one prefix
+        // invalidation refreshes the Vault and every star in the app.
+        void queryClient.invalidateQueries({ queryKey: qk.bookmarksLocal() });
+      }
+
       setJudged((previous) => {
         const next = new Set(previous);
         next.add(title.id);
         return next;
       });
     },
-    []
+    [queryClient]
   );
 
   return {

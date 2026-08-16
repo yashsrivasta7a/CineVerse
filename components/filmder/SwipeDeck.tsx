@@ -20,13 +20,55 @@ import { colors, radius, withAlpha } from '@/theme/tokens';
 
 export type SwipeDirection = 'left' | 'right';
 
+/**
+ * Which input produced a verdict.
+ *
+ * The deck deliberately does not know what these *mean* — that mapping lives on
+ * the screen, which owns the product decision that a drag is about a film you
+ * have not seen and a key is about one you have. All this layer guarantees is
+ * that the two stay distinguishable all the way to the callback.
+ */
+export type VerdictSource = 'gesture' | 'button';
+
 export interface SwipeDeckHandle {
-  swipe: (direction: SwipeDirection) => void;
+  swipe: (direction: SwipeDirection, source?: VerdictSource) => void;
 }
+
+/**
+ * What the drag stamps say.
+ *
+ * Fixed, because a drag only ever means one thing here: it is the unseen axis,
+ * and the two words below are the two outcomes on it. The keys speak for the
+ * seen axis and carry their own labels.
+ */
+const STAMP_LEFT = 'Pass';
+const STAMP_RIGHT = 'Vault';
+
+/**
+ * The verdicts reachable without a drag, for assistive technology.
+ *
+ * A screen reader cannot pan, so the two swipe outcomes would otherwise be
+ * unreachable — the keys only cover the seen axis. Exposing all four here keeps
+ * one complete list in one place rather than making the user find half of the
+ * verdicts on the card and half on the buttons.
+ */
+const A11Y_ACTIONS = [
+  { name: 'pass', label: 'Pass' },
+  { name: 'vault', label: 'Add to my vault' },
+  { name: 'watchedLiked', label: 'Watched it, liked it' },
+  { name: 'watchedDisliked', label: 'Watched it, did not like it' },
+  // Grouping the card for the screen reader hides the pressable inside it, so
+  // without this there is no way left to read the synopsis before judging.
+  { name: 'about', label: 'More about this film' },
+] as const;
 
 export interface SwipeDeckProps {
   cards: Title[];
-  onVerdict: (title: Title, direction: SwipeDirection) => void;
+  onVerdict: (
+    title: Title,
+    direction: SwipeDirection,
+    source: VerdictSource
+  ) => void;
   /**
    * An upward drag on the top card. NOT a verdict — the card springs home and
    * the About-film sheet is opened instead, so browsing a synopsis never
@@ -90,7 +132,8 @@ function runFling(
   axis: SharedValue<number>,
   width: number,
   direction: SwipeDirection,
-  onDone: (direction: SwipeDirection) => void
+  source: VerdictSource,
+  onDone: (direction: SwipeDirection, source: VerdictSource) => void
 ) {
   'worklet';
   axis.value = AXIS_NONE;
@@ -103,7 +146,7 @@ function runFling(
     // the one behind takes this exact position, so it has to start at rest.
     tx.value = 0;
     ty.value = 0;
-    runOnJS(onDone)(direction);
+    runOnJS(onDone)(direction, source);
   });
 }
 
@@ -238,14 +281,14 @@ export const SwipeDeck = forwardRef<SwipeDeckHandle, SwipeDeckProps>(
     const top = cards[0];
 
     const commit = useCallback(
-      (direction: SwipeDirection) => {
+      (direction: SwipeDirection, source: VerdictSource) => {
         if (!top) return;
         Haptics.impactAsync(
           direction === 'right'
             ? Haptics.ImpactFeedbackStyle.Medium
             : Haptics.ImpactFeedbackStyle.Light
         );
-        onVerdict(top, direction);
+        onVerdict(top, direction, source);
       },
       [top, onVerdict]
     );
@@ -257,9 +300,34 @@ export const SwipeDeck = forwardRef<SwipeDeckHandle, SwipeDeckProps>(
     }, [onSwipeUp]);
 
     useImperativeHandle(ref, () => ({
-      swipe: (direction: SwipeDirection) =>
-        runFling(tx, ty, axis, width, direction, commit),
+      swipe: (direction: SwipeDirection, source: VerdictSource = 'gesture') =>
+        runFling(tx, ty, axis, width, direction, source, commit),
     }));
+
+    /**
+     * Runs a verdict from the screen reader's action menu.
+     *
+     * An ordinary function rather than a `useCallback` for the same reason
+     * `fling` is: memoising it would list the shared values as hook
+     * dependencies, which the React Compiler's immutability rule rejects for
+     * values this then writes to.
+     */
+    const handleAccessibilityAction = (
+      event: { nativeEvent: { actionName: string } }
+    ) => {
+      switch (event.nativeEvent.actionName) {
+        case 'pass':
+          return runFling(tx, ty, axis, width, 'left', 'gesture', commit);
+        case 'vault':
+          return runFling(tx, ty, axis, width, 'right', 'gesture', commit);
+        case 'watchedDisliked':
+          return runFling(tx, ty, axis, width, 'left', 'button', commit);
+        case 'watchedLiked':
+          return runFling(tx, ty, axis, width, 'right', 'button', commit);
+        case 'about':
+          return requestAbout();
+      }
+    };
 
     const pan = Gesture.Pan()
       .onStart(() => {
@@ -293,7 +361,15 @@ export const SwipeDeck = forwardRef<SwipeDeckHandle, SwipeDeckProps>(
           // Fall back to the velocity's sign: on a velocity-only commit tx can
           // still be 0, which `tx.value > 0` alone read as a left swipe.
           const drift = tx.value !== 0 ? tx.value : event.velocityX;
-          runFling(tx, ty, axis, width, drift > 0 ? 'right' : 'left', commit);
+          runFling(
+            tx,
+            ty,
+            axis,
+            width,
+            drift > 0 ? 'right' : 'left',
+            'gesture',
+            commit
+          );
         } else {
           runSnapBack(tx, ty, axis);
         }
@@ -375,6 +451,17 @@ export const SwipeDeck = forwardRef<SwipeDeckHandle, SwipeDeckProps>(
             const content = (
               <Animated.View
                 key={card.id}
+                // Only the top card carries the action menu. The two behind it
+                // are decoration, and offering verdicts on a card the user
+                // cannot see would let them judge the wrong film.
+                accessible={isTop}
+                // No explicit label: grouping lets the platform build the
+                // announcement from the card's own text — title, year, rating —
+                // which is strictly more than a title alone would say.
+                accessibilityActions={isTop ? [...A11Y_ACTIONS] : undefined}
+                onAccessibilityAction={
+                  isTop ? handleAccessibilityAction : undefined
+                }
                 style={[
                   {
                     position: 'absolute',
@@ -391,8 +478,8 @@ export const SwipeDeck = forwardRef<SwipeDeckHandle, SwipeDeckProps>(
 
                 {isTop ? (
                   <>
-                    <Stamp label="Seen it" style={likeStyle} />
-                    <Stamp label="Nope" style={nopeStyle} />
+                    <Stamp label={STAMP_RIGHT} style={likeStyle} />
+                    <Stamp label={STAMP_LEFT} style={nopeStyle} />
                   </>
                 ) : null}
               </Animated.View>

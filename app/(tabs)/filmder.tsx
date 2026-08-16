@@ -1,8 +1,12 @@
 import { AboutSheet, type AboutSheetHandle } from '@/components/filmder/AboutSheet';
 import { DeckCard } from '@/components/filmder/DeckCard';
 import { DeckTicket, TICKET_MARGIN } from '@/components/filmder/DeckTicket';
-import { SwipeDeck, type SwipeDeckHandle } from '@/components/filmder/SwipeDeck';
-import VerdictButtons from '@/components/filmder/VerdictButtons';
+import {
+  SwipeDeck,
+  type SwipeDeckHandle,
+  type VerdictSource,
+} from '@/components/filmder/SwipeDeck';
+import { VerdictButtons } from '@/components/filmder/VerdictButtons';
 import { MOOD_STOPS } from '@/components/media/MoodSlider';
 import { Button } from '@/components/ui/Button';
 import { Display } from '@/components/ui/Display';
@@ -39,6 +43,31 @@ const BUTTON_OVERLAP = VERDICT_SIZE / 8;
 /** Clearance below the keys — aligning them just above the AboutSheet's collapsed height */
 const bandClearance = (inset: number) => inset + 24;
 
+/**
+ * Which of the deck's four outcomes an input means.
+ *
+ * The whole product decision lives in this one map. A drag is about a film the
+ * user has not seen — pass it, or file it in the vault. A key is about one they
+ * have — it landed, or it did not. Neither input is a duplicate of the other,
+ * and no mode has to be switched to reach any of the four.
+ *
+ * Only the vault verdict saves. Marking a film watched must never add it to a
+ * list of films to go and watch.
+ */
+const OUTCOMES: Record<
+  VerdictSource,
+  Record<'left' | 'right', { verdict: 'up' | 'down'; seen: boolean }>
+> = {
+  gesture: {
+    left: { verdict: 'down', seen: false }, // Pass
+    right: { verdict: 'up', seen: false },  // Vault
+  },
+  button: {
+    left: { verdict: 'down', seen: true },  // Watched, disliked
+    right: { verdict: 'up', seen: true },   // Watched, liked
+  },
+};
+
 const BackgroundPattern = () => {
   const line = 'RATE THE MOVIE TO THE FILM VOTE TO THE MOVIE RATE THE MOVIE TO THE FILM VOTE TO THE MOVIE RATE THE MOVIE ';
   return (
@@ -72,14 +101,14 @@ export default function FilmderScreen() {
     if (urls.length) Image.prefetch(urls, { cachePolicy: 'memory-disk' });
   }, [cards]);
 
+  const top = cards[0];
+
   const handleVerdict = useCallback(
-    (title: Title, direction: 'left' | 'right') => {
-      commit(title, direction === 'right' ? 'up' : 'down');
+    (title: Title, direction: 'left' | 'right', source: VerdictSource) => {
+      commit(title, OUTCOMES[source][direction]);
     },
     [commit]
   );
-
-  const top = cards[0];
 
   /**
    * Opens the About sheet. Deliberately NOT a verdict — browsing a synopsis
@@ -216,10 +245,12 @@ export default function FilmderScreen() {
           }}
         >
 
+          {/* The keys carry the seen axis, so they pass `'button'` — the same
+              fling, the same commit, a different verdict at the end of it. */}
           <VerdictButtons
             size={VERDICT_SIZE}
-            onDown={() => deckRef.current?.swipe('left')}
-            onUp={() => deckRef.current?.swipe('right')}
+            onDown={() => deckRef.current?.swipe('left', 'button')}
+            onUp={() => deckRef.current?.swipe('right', 'button')}
           />
 
         </View>

@@ -14,11 +14,20 @@ export interface VerdictButtonsProps {
 }
 
 /**
- * Thumbs-down / thumbs-up pair.
+ * The deck's two keys: the verdicts for a film the user has already watched.
  *
- * These are the accessible path for the Filmder deck — a swipe gesture on its
- * own is unusable with a screen reader, so the buttons must drive exactly the
- * same verdict code path the gesture does, not a parallel one.
+ * The deck's four outcomes split cleanly by input. A drag is about a film the
+ * user has *not* seen — pass it, or file it in the vault for later. These keys
+ * are about one they *have* — it landed, or it did not. Two gesture families,
+ * two axes, no mode to switch between them.
+ *
+ * That split is why thumbs are right here and would have been wrong on the
+ * swipe. A thumb rates something; you cannot rate a film you have not watched.
+ * The swipe's own stamps say "Pass" and "Vault" for exactly that reason.
+ *
+ * These keys are NOT the accessible route for the whole deck any more — they
+ * only reach half of it. The two swipe verdicts are exposed to screen readers
+ * through `accessibilityActions` on the card itself, in `SwipeDeck`.
  *
  * Built on `PressableScale`, NOT on a bare `Pressable` with a
  * `style={({ pressed }) => …}` callback. NativeWind wraps `Pressable` through
@@ -71,7 +80,7 @@ export function VerdictButtons({
         onPress={press(onDown)}
         scaleTo={0.93}
         accessibilityRole="button"
-        accessibilityLabel="Not for me"
+        accessibilityLabel="Watched it, did not like it"
         style={{
           ...base,
           backgroundColor: colors.blood,
@@ -88,7 +97,7 @@ export function VerdictButtons({
         onPress={press(onUp, true)}
         scaleTo={0.93}
         accessibilityRole="button"
-        accessibilityLabel="Interested"
+        accessibilityLabel="Watched it, liked it"
         style={{ ...base, backgroundColor: colors.paper }}
       >
         <Ionicons name="thumbs-up" size={size * GLYPH} color={colors.blood} />

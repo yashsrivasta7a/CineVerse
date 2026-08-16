@@ -10,6 +10,16 @@ import type { DiscoverParams } from '@/lib/api/tmdb/discover';
  */
 export interface MoodProfile {
   label: string;
+  /**
+   * What the rail for this mood is called on screen, and what it holds.
+   *
+   * The copy lives beside the parameters rather than in the component: a rail
+   * headed "BAD" would be naming the user's mood back at them, when what the
+   * heading has to describe is the films underneath it. Change the genres here
+   * and the promise in the heading changes with them, in one place.
+   */
+  railTitle: string;
+  railSubtitle: string;
   /** Pipe-joined = OR. */
   movieGenres: number[];
   tvGenres: number[];
@@ -24,6 +34,8 @@ export const MOOD_PROFILES: MoodProfile[] = [
   {
     // Feeling bad -> comfort watching: light, short, reliably likeable.
     label: 'BAD',
+    railTitle: 'Comfort watching',
+    railSubtitle: 'Light, short, and easy to sit with',
     movieGenres: [35, 10751, 16],
     tvGenres: [35, 10751, 16],
     withoutGenres: [27, 53],
@@ -32,23 +44,31 @@ export const MOOD_PROFILES: MoodProfile[] = [
   },
   {
     label: 'MEH',
+    railTitle: 'Something gripping',
+    railSubtitle: 'Thrillers, crime, and mysteries',
     movieGenres: [53, 80, 9648],
     tvGenres: [80, 9648],
     minRating: 6.8,
   },
   {
     label: 'NORMAL',
+    railTitle: 'Crowd pleasers',
+    railSubtitle: 'Big, popular, easy to start',
     movieGenres: [12, 28, 35],
     tvGenres: [10759, 35],
     sortBy: 'popularity.desc',
   },
   {
     label: 'GOOD',
+    railTitle: 'Feel-good picks',
+    railSubtitle: 'Romance, music, and adventure',
     movieGenres: [10402, 10749, 12],
     tvGenres: [10749, 10759],
   },
   {
     label: 'GREAT',
+    railTitle: 'Worth your full attention',
+    railSubtitle: 'Drama, history, and documentary',
     movieGenres: [18, 36, 99],
     tvGenres: [18, 99],
     minRating: 7.2,

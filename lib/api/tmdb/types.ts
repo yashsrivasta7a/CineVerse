@@ -199,6 +199,30 @@ export interface TmdbEpisode {
   vote_average: number;
 }
 
+/** One frame TMDB holds for an episode, from `append_to_response=images`. */
+export interface TmdbStill {
+  file_path: string;
+  width: number;
+  height: number;
+  aspect_ratio: number;
+}
+
+/**
+ * The single-episode payload.
+ *
+ * `crew` and `guest_stars` are episode-specific and come back by DEFAULT — they
+ * are not the show's `aggregate_credits` narrowed down, and appending `credits`
+ * to get them would instead return the season's regular cast, which is a
+ * different (and far less interesting) list. Only `images` needs appending.
+ */
+export interface TmdbEpisodeDetails extends TmdbEpisode {
+  vote_count: number;
+  production_code: string | null;
+  crew: TmdbCrewMember[];
+  guest_stars: TmdbCastMember[];
+  images?: { stills: TmdbStill[] };
+}
+
 export interface TmdbTvDetails {
   adult: boolean;
   backdrop_path: string | null;

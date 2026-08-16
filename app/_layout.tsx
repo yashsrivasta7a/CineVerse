@@ -116,6 +116,7 @@ export default function RootLayout() {
               <Stack.Screen name="collection/[slug]" />
               <Stack.Screen name="tv/[id]" />
               <Stack.Screen name="tv/[id]/season/[season]" />
+              <Stack.Screen name="tv/[id]/season/[season]/episode/[episode]" />
               <Stack.Screen name="person/[id]" />
             </Stack>
           </ClerkLoaded>

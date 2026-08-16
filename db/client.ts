@@ -88,6 +88,9 @@ CREATE INDEX IF NOT EXISTS idx_bookmarks_synced   ON bookmarks (synced);
 const ADDITIVE_COLUMNS: readonly (readonly [string, string, string])[] = [
   ['bookmarks', 'deleted', 'INTEGER NOT NULL DEFAULT 0'],
   ['bookmarks', 'title', 'TEXT'],
+  ['bookmarks', 'source', "TEXT NOT NULL DEFAULT 'manual'"],
+  ['verdicts', 'seen', 'INTEGER NOT NULL DEFAULT 0'],
+  ['verdicts', 'genre_ids', 'TEXT'],
 ] as const;
 
 /**
@@ -112,6 +115,27 @@ const MIGRATIONS: readonly (() => void)[] = [
   //
   // `title`: the Appwrite document carries one, so a queued addition has to be
   // able to supply it without a TMDB round trip it may have no network for.
+  () => {
+    applyAdditiveColumns();
+    db.execSync(INDEXES);
+  },
+
+  // v3 — the second verdict axis, and where a bookmark came from.
+  //
+  // `verdicts.seen`: a verdict is a 2x2, not a line. "Interested" and "watched
+  // and liked" are both positive but carry very different confidence, and
+  // collapsing them loses the stronger of the two. Existing rows default to 0,
+  // which is correct — every verdict written before this migration came from a
+  // deck of unseen films.
+  //
+  // `verdicts.genre_ids`: captured at commit time from the card already in
+  // hand. Ranking needs the genres of judged titles, and the alternative is a
+  // TMDB detail fetch per judged id — hundreds of requests to answer a question
+  // the deck already knew the answer to.
+  //
+  // `bookmarks.source`: a right-swipe now saves automatically, which at a
+  // realistic swipe rate buries a hand-curated Vault under deck output. The
+  // column is what lets the two be shown apart without a second table.
   () => {
     applyAdditiveColumns();
     db.execSync(INDEXES);

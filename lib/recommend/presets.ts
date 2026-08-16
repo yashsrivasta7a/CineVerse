@@ -1,4 +1,5 @@
 import type { DiscoverParams } from '@/lib/api/tmdb/discover';
+import { MOOD_PROFILES, paramsFromMood } from './moods';
 
 /**
  * Named discover presets.
@@ -59,6 +60,27 @@ export const PRESETS: Record<string, CollectionPreset> = {
 
 export function presetBySlug(slug: string): CollectionPreset | null {
   return PRESETS[slug] ?? null;
+}
+
+/**
+ * The rail for the mood the user is currently in.
+ *
+ * Returns null for an unset mood rather than falling back to a default profile,
+ * which is what `paramsFromMood` does. A silent default would put a rail on the
+ * page claiming to match a mood nobody chose.
+ */
+export function moodRail(moodIndex: number | null): CollectionPreset | null {
+  if (moodIndex === null) return null;
+
+  const profile = MOOD_PROFILES[moodIndex];
+  if (!profile) return null;
+
+  return {
+    slug: `mood-${moodIndex}`,
+    title: profile.railTitle,
+    subtitle: profile.railSubtitle,
+    params: paramsFromMood(moodIndex),
+  };
 }
 
 /** A rail built from one of the user's liked genres. */

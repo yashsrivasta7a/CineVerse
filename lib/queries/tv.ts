@@ -1,7 +1,7 @@
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 
-import { getSeason, getTvDetails } from '@/lib/api/tmdb/tv';
+import { getEpisode, getSeason, getTvDetails } from '@/lib/api/tmdb/tv';
 import {
   getInProgressShows,
   getWatchedEpisodes,
@@ -23,6 +23,30 @@ export function useSeason(tvId: string | number | undefined, season: number) {
     queryKey: qk.season(tvId ?? '', season),
     queryFn: ({ signal }) => getSeason(tvId!, season, signal),
     enabled: tvId !== undefined && tvId !== '',
+  });
+}
+
+/**
+ * One episode.
+ *
+ * Longer `staleTime` than the show around it: an aired episode's title, still
+ * and guest list do not change, and the reel scrubber pushes between siblings
+ * fast enough that a refetch per hop would be visible.
+ */
+export function useEpisode(
+  tvId: string | number | undefined,
+  season: number,
+  episode: number
+) {
+  return useQuery({
+    queryKey: qk.episode(tvId ?? '', season, episode),
+    queryFn: ({ signal }) => getEpisode(tvId!, season, episode, signal),
+    enabled:
+      tvId !== undefined &&
+      tvId !== '' &&
+      Number.isFinite(season) &&
+      Number.isFinite(episode),
+    staleTime: 1000 * 60 * 60 * 12,
   });
 }
 

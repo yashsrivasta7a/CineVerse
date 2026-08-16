@@ -1,6 +1,7 @@
 import { tmdbGet, type QueryParams } from './client';
 import { normalizeTv } from './normalize';
 import type {
+  TmdbEpisodeDetails,
   TmdbPage,
   TmdbSeasonDetails,
   TmdbTvDetails,
@@ -47,6 +48,19 @@ export function getSeason(
   return tmdbGet<TmdbSeasonDetails>(
     `/tv/${tvId}/season/${seasonNumber}`,
     { language: 'en-US' },
+    signal
+  );
+}
+
+export function getEpisode(
+  tvId: string | number,
+  seasonNumber: number,
+  episodeNumber: number,
+  signal?: AbortSignal
+): Promise<TmdbEpisodeDetails> {
+  return tmdbGet<TmdbEpisodeDetails>(
+    `/tv/${tvId}/season/${seasonNumber}/episode/${episodeNumber}`,
+    { append_to_response: 'images', language: 'en-US' },
     signal
   );
 }

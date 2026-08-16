@@ -24,7 +24,21 @@ const palette = {
   paper: '#F1DAA4',
   paperDim: '#F1DAA4',
   paperDeep: '#F1DAA4',
-  paperMuted: '#F1DAA4',
+
+  /**
+   * The one quieter ivory, and the only tone in the palette that is not one of
+   * the four.
+   *
+   * It is NOT paper at reduced opacity — the palette is solid-only, and
+   * `withAlpha` is a no-op, so every "dimmed" ivory in the app currently renders
+   * at full strength and the type hierarchy it implies does not exist. This is a
+   * flat solid mixed down toward ink instead: same ivory family, one step back.
+   *
+   * 5.8:1 on ink, which clears WCAG AA for body text. Paper's own 12.7:1 stays
+   * reserved for the thing being qualified, so a caption can sit under a heading
+   * without competing with it.
+   */
+  paperMuted: '#A8926C',
 
   noir: '#000000',
   white: '#F1DAA4',

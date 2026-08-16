@@ -14,7 +14,8 @@ import { discoverMoviesPage } from '@/lib/api/tmdb/discover';
 import { normalizeMovie } from '@/lib/api/tmdb/normalize';
 import { useGridWidth } from '@/lib/hooks/useGridWidth';
 import { qk } from '@/lib/queries/keys';
-import { genreRail, personRail, presetBySlug } from '@/lib/recommend/presets';
+import { applyTaste, tasteFromPrefs } from '@/lib/recommend/params';
+import { genreRail, moodRail, personRail, presetBySlug } from '@/lib/recommend/presets';
 import { paramsFromFilters, useFilters } from '@/lib/store/filters';
 import { selectByFacet, usePrefs } from '@/lib/store/prefs';
 import { colors, grid, radius, withAlpha } from '@/theme/tokens';
@@ -39,7 +40,10 @@ export default function CollectionScreen() {
   // stored preference that produced them.
   const preset = useMemo(() => {
     // The filters sheet routes here with a reserved slug rather than encoding
-    // its whole state into the URL.
+    // its whole state into the URL. It is the one collection that must NOT pick
+    // up the stored taste — an explicit filter is the user overriding their
+    // standing preferences for one search, and quietly re-applying them would
+    // return fewer results than the sheet just promised.
     if (slug === 'filtered') {
       return {
         slug: 'filtered',
@@ -49,26 +53,37 @@ export default function CollectionScreen() {
       };
     }
 
-    const named = presetBySlug(slug ?? '');
-    if (named) return named;
+    const resolved = (() => {
+      const named = presetBySlug(slug ?? '');
+      if (named) return named;
 
-    const genreMatch = /^genre-(\d+)$/.exec(slug ?? '');
-    if (genreMatch) {
-      const entry = selectByFacet(entries, 'genre', 'like').find(
-        (candidate) => candidate.value === genreMatch[1]
-      );
-      return genreRail(Number(genreMatch[1]), entry?.label ?? 'Genre');
-    }
+      const moodMatch = /^mood-(\d+)$/.exec(slug ?? '');
+      if (moodMatch) return moodRail(Number(moodMatch[1]));
 
-    const personMatch = /^person-(\d+)$/.exec(slug ?? '');
-    if (personMatch) {
-      const entry = selectByFacet(entries, 'person', 'like').find(
-        (candidate) => candidate.value === personMatch[1]
-      );
-      return personRail(Number(personMatch[1]), entry?.label ?? 'Cast');
-    }
+      const genreMatch = /^genre-(\d+)$/.exec(slug ?? '');
+      if (genreMatch) {
+        const entry = selectByFacet(entries, 'genre', 'like').find(
+          (candidate) => candidate.value === genreMatch[1]
+        );
+        return genreRail(Number(genreMatch[1]), entry?.label ?? 'Genre');
+      }
 
-    return null;
+      const personMatch = /^person-(\d+)$/.exec(slug ?? '');
+      if (personMatch) {
+        const entry = selectByFacet(entries, 'person', 'like').find(
+          (candidate) => candidate.value === personMatch[1]
+        );
+        return personRail(Number(personMatch[1]), entry?.label ?? 'Cast');
+      }
+
+      return null;
+    })();
+
+    if (!resolved) return null;
+
+    // The same taste the rail was built with. Without this, "see all" on a
+    // filtered rail opens a grid holding the very titles the rail excluded.
+    return { ...resolved, params: applyTaste(resolved.params, tasteFromPrefs(entries)) };
   }, [slug, entries, filters]);
 
   const query = useInfiniteQuery({

@@ -346,7 +346,11 @@ export default function Layout() {
 
   return (
     <Tabs
-      initialRouteName="filmder"
+      // Home, not the deck. The deck is the app's differentiator, but landing
+      // straight on a single card gives a returning user nothing to orient
+      // against and hides the one screen that reports what the app has learned
+      // about them. Flicks is one tap away and keeps its own scroll position.
+      initialRouteName="index"
       tabBar={(props) => <KinoTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >

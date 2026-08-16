@@ -1,6 +1,14 @@
 import type { MediaType } from '@/lib/api/tmdb/types';
 import { db } from '../client';
 
+/**
+ * How a bookmark got here. `flicks` is a right-swipe on the deck, which at a
+ * realistic swipe rate arrives in bulk; `manual` is a deliberate save from a
+ * detail screen. The Vault shows them apart so the second is not buried by the
+ * first.
+ */
+export type BookmarkSource = 'manual' | 'flicks';
+
 export interface BookmarkRow {
   media_type: MediaType;
   tmdb_id: number;
@@ -8,6 +16,7 @@ export interface BookmarkRow {
   synced: number;
   deleted: number;
   title: string | null;
+  source: BookmarkSource;
 }
 
 /**
@@ -43,21 +52,49 @@ export function isBookmarked(mediaType: MediaType, tmdbId: number): boolean {
 /**
  * Adds, or revives a tombstone. Synchronous: the star must not wait on a round
  * trip, and it must stay lit if the request never lands.
+ *
+ * `source` is sticky at `manual`. A film the user deliberately saved and later
+ * happened to right-swipe is still a deliberate save, and demoting it into the
+ * bulk section would quietly lose that.
  */
 export function addBookmarkLocal(
   mediaType: MediaType,
   tmdbId: number,
-  title: string
+  title: string,
+  source: BookmarkSource = 'manual'
 ): void {
   db.runSync(
-    `INSERT INTO bookmarks (media_type, tmdb_id, created_at, synced, deleted, title)
-     VALUES (?, ?, ?, 0, 0, ?)
+    `INSERT INTO bookmarks (media_type, tmdb_id, created_at, synced, deleted, title, source)
+     VALUES (?, ?, ?, 0, 0, ?, ?)
      ON CONFLICT(media_type, tmdb_id) DO UPDATE SET
        created_at = excluded.created_at,
        synced     = 0,
        deleted    = 0,
-       title      = excluded.title`,
-    [mediaType, tmdbId, Date.now(), title]
+       title      = excluded.title,
+       source     = CASE WHEN bookmarks.source = 'manual'
+                         THEN 'manual' ELSE excluded.source END`,
+    [mediaType, tmdbId, Date.now(), title, source]
+  );
+}
+
+/** True when the deck has already auto-saved this title. */
+export function isBookmarkedFromFlicks(
+  mediaType: MediaType,
+  tmdbId: number
+): boolean {
+  const row = db.getFirstSync<{ n: number }>(
+    `SELECT 1 AS n FROM bookmarks
+     WHERE media_type = ? AND tmdb_id = ? AND deleted = 0 AND source = 'flicks'`,
+    [mediaType, tmdbId]
+  );
+  return !!row;
+}
+
+/** Clears every deck-saved bookmark, leaving hand-picked ones alone. */
+export function clearFlicksBookmarks(): void {
+  db.runSync(
+    `UPDATE bookmarks SET deleted = 1, synced = 0
+     WHERE source = 'flicks' AND deleted = 0`
   );
 }
 
@@ -124,14 +161,20 @@ export function reconcileBookmarks(
       remoteKeys.add(key);
       if (pending.has(key)) continue;
 
+      // The Appwrite document carries no provenance, so a row arriving from
+      // another device inserts as `manual` — the section a user will look in
+      // for something they know they saved. An existing local row keeps its
+      // own source: this device knows where it came from and the server does
+      // not.
       db.runSync(
-        `INSERT INTO bookmarks (media_type, tmdb_id, created_at, synced, deleted, title)
-         VALUES (?, ?, ?, 1, 0, ?)
+        `INSERT INTO bookmarks (media_type, tmdb_id, created_at, synced, deleted, title, source)
+         VALUES (?, ?, ?, 1, 0, ?, 'manual')
          ON CONFLICT(media_type, tmdb_id) DO UPDATE SET
            created_at = excluded.created_at,
            synced     = 1,
            deleted    = 0,
-           title      = COALESCE(excluded.title, bookmarks.title)`,
+           title      = COALESCE(excluded.title, bookmarks.title),
+           source     = bookmarks.source`,
         [item.mediaType, item.tmdbId, item.createdAt, item.title ?? null]
       );
     }
