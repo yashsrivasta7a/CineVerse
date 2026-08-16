@@ -1,160 +1,326 @@
-import { useCallback } from "react";
-import AuroraBackground from "../../components/AuroraBackground"
-import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { icons } from "@/constants/icons";
-import SearchBar from "../../components/SearchBar";
-import { useRouter, useFocusEffect } from "expo-router";
-import useFetch from "@/services/useFetch";
-import { fetchMovies } from "@/services/api";
-import MovieCard from "@/components/MovieCard";
-import { getTrendingMovies } from "@/services/appwrite";
-import TrendingMovieCard from "../../components/TrendingCard";
-import { Ionicons } from "@expo/vector-icons";
 import { useUser } from "@clerk/clerk-expo";
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import { useMemo } from "react";
+import { Pressable, ScrollView, View } from "react-native";
 
-export default function Index() {
-  const router = useRouter();
-  const { user } = useUser();
-  const { data: trendingMovies, loading: trendingLoading, error: trendingError, silentRefetch: silentRefetchTrending } = useFetch(getTrendingMovies)
-  const { data: movies, loading: moviesLoading, error: moviesError } = useFetch(() => fetchMovies({ query: '' }));
+import { Marquee } from "@/components/kino/Marquee";
+import { PolaroidFrame, tiltFromId } from "@/components/kino/PolaroidFrame";
+import { TornSection } from "@/components/kino/TornSection";
+import { PosterCard } from "@/components/media/PosterCard";
+import { PosterRow } from "@/components/media/PosterRow";
+import { Display } from "@/components/ui/Display";
+import { PressableScale } from "@/components/ui/PressableScale";
+import { Screen } from "@/components/ui/Screen";
+import { SearchField } from "@/components/ui/SearchField";
+import { Text } from "@/components/ui/Text";
 
-  // Silently refetch trending movies every time the home tab comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      silentRefetchTrending();
-    }, [])
-  );
+import { ContinueWatchingRow } from "@/components/media/ContinueWatchingRow";
+import { MOOD_STOPS } from "@/components/media/MoodSlider";
+import { useGenres } from "@/lib/queries/reference";
+import { useTrendingMovies } from "@/lib/queries/trending";
+import { useContinueWatching } from "@/lib/queries/tv";
+import { PRESETS, genreRail, personRail, type CollectionPreset } from "@/lib/recommend/presets";
+import { selectByFacet, usePrefs } from "@/lib/store/prefs";
+import { colors, grid, radius, withAlpha } from "@/theme/tokens";
+
+/** Rails built from the user's own taste, ahead of the generic ones. */
+const MAX_TASTE_RAILS = 3;
+
+/**
+ * Wrapped so the heading and the rail disappear together. `ContinueWatchingRow`
+ * renders null when nothing has been marked watched, and a lone heading over
+ * empty space reads as a bug.
+ */
+function ContinueWatchingSection() {
+  const shows = useContinueWatching();
+  if (!shows.length) return null;
 
   return (
-    <View className="flex-1 bg-primary">
-      <View className="absolute inset-0">
-        <AuroraBackground
-          colorStops={[
-            "#000000",
-            "#1A1A1A",
-            "#FF4500",
-            "#121212"
-          ]}
-          blend={7}
-          amplitude={1.0}
-          speed={0.5}
-        />
+    <View style={{ marginTop: 28, gap: 12 }}>
+      <View style={{ paddingHorizontal: grid.screenPadding }}>
+        <Display variant="displaySm">Continue watching</Display>
+        <Text variant="osd" color={withAlpha(colors.paper, 0.5)} style={{ marginTop: 4 }}>
+          Picked up where you left off
+        </Text>
       </View>
+      <ContinueWatchingRow />
+    </View>
+  );
+}
 
+export default function Selection() {
+  const router = useRouter();
+  const { user } = useUser();
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} >
-        <View className="px-5">
+  const entries = usePrefs((state) => state.entries);
+  const mood = usePrefs((state) => state.mood);
 
-          {/* Header with logo and profile avatar */}
-          <View className="w-full flex-row justify-between mt-16 mb-5 items-center">
-            <View style={{ width: 40 }} />
-            <Image source={icons.logo} className="w-16 h-16" resizeMode="contain" />
-            <TouchableOpacity
-              onPress={() => router.push('/profile')}
-              activeOpacity={0.8}
+  const { data: trending } = useTrendingMovies();
+  const { data: genres } = useGenres('movie');
+
+  const trendingTitles = useMemo(() => (trending ?? []).slice(0, 12), [trending]);
+
+  /**
+   * Rails are data. Personal ones first — the whole point of onboarding is that
+   * the home screen looks different for different people.
+   */
+  const rails = useMemo<CollectionPreset[]>(() => {
+    const personal: CollectionPreset[] = [];
+
+    const likedGenres = selectByFacet(entries, 'genre', 'like');
+    for (const entry of likedGenres.slice(0, MAX_TASTE_RAILS)) {
+      const name =
+        entry.label ??
+        genres?.find((genre) => String(genre.id) === entry.value)?.name ??
+        null;
+      if (name) personal.push(genreRail(Number(entry.value), name));
+    }
+
+    const likedPeople = selectByFacet(entries, 'person', 'like');
+    for (const entry of likedPeople.slice(0, 2)) {
+      if (entry.label) personal.push(personRail(Number(entry.value), entry.label));
+    }
+
+    return [
+      ...personal,
+      PRESETS.acclaimed,
+      PRESETS.thisYear,
+      PRESETS.shortWatch,
+      PRESETS.popular,
+    ];
+  }, [entries, genres]);
+
+  const openCollection = (preset: CollectionPreset) =>
+    router.push(`/collection/${preset.slug}` as never);
+
+  return (
+    <Screen>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 140 }}
+      >
+        {/* Masthead */}
+        <View
+          style={{
+            paddingHorizontal: grid.screenPadding,
+            paddingTop: 6,
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+          }}
+        >
+          <View>
+            <Display variant="displayXl">CINEVERSE</Display>
+            <Text
+              variant="script"
+              color={colors.blood}
+              style={{ marginTop: -4, marginLeft: 4, transform: [{ rotate: '-4deg' }] }}
             >
-              {user?.imageUrl ? (
-                <Image
-                  source={{ uri: user.imageUrl }}
-                  className="w-10 h-10 rounded-full"
-                  style={{
-                    borderWidth: 2,
-                    borderColor: 'rgba(255, 69, 0, 0.5)',
-                  }}
-                />
-              ) : (
-                <View
-                  className="w-10 h-10 rounded-full items-center justify-center"
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    borderWidth: 2,
-                    borderColor: 'rgba(255, 69, 0, 0.5)',
-                  }}
-                >
-                  <Ionicons name="person" size={18} color="#FF4500" />
-                </View>
-              )}
-            </TouchableOpacity>
+              Your Movie Universe
+            </Text>
           </View>
 
-          <View className="mb-8">
-            <SearchBar onPress={() => router.push('/search')} placeholder="Search for a movie" />
-          </View>
-          {moviesLoading || trendingLoading ? (<ActivityIndicator size="large" color="#FF4500" className="mt-10 self-center" />) : moviesError || trendingError ? <Text className="text-white text-center mt-10">Something went wrong</Text> : <View className="flex-1">
-            {trendingMovies && (
-              <View className="mb-8">
-                {/* Premium Section Header */}
-                <View className="flex-row items-center justify-between mb-5">
-                  <View>
-                    <View className="flex-row items-center gap-2 mb-1">
-                      <Text className="text-white text-xl font-black tracking-tight">Top Trending</Text>
-                      <Text style={{ fontSize: 18 }}>🔥</Text>
-                    </View>
-                    <Text className="text-white/30 text-xs font-medium">Most searched movies right now</Text>
-                  </View>
-                </View>
-
-                {/* Horizontal divider */}
-                <View
-                  className="mb-5"
-                  style={{
-                    height: 1,
-                    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                  }}
-                />
-
-                {/* Full-bleed Carousel */}
-                <View style={{ marginHorizontal: -20 }}>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    decelerationRate="fast"
-                    contentContainerStyle={{
-                      paddingHorizontal: 20,
-                      gap: 16,
-                    }}
-                  >
-                    {trendingMovies.map((item: any, index: number) => (
-                      <TrendingMovieCard
-                        key={`${item.movie_id}-${index}`}
-                        movie={item}
-                        index={index}
-                      />
-                    ))}
-                  </ScrollView>
-                </View>
+          <Pressable
+            onPress={() => router.push('/profile')}
+            accessibilityRole="button"
+            accessibilityLabel="Open profile"
+            style={{ marginTop: 8 }}
+          >
+            {user?.imageUrl ? (
+              <Image
+                source={{ uri: user.imageUrl }}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  borderWidth: 2,
+                  borderColor: colors.paper,
+                }}
+                contentFit="cover"
+              />
+            ) : (
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: colors.blood,
+                  borderWidth: 2,
+                  borderColor: colors.paper,
+                }}
+              >
+                <Ionicons name="person" size={18} color={colors.paper} />
               </View>
             )}
-            <>
-              <View className="flex-row justify-between items-center mb-5">
-                <View>
-                  <View className="flex-row items-center gap-2 mb-1">
-                    <Text className="text-white text-xl font-black tracking-tight">Latest Movies</Text>
-                    <Text style={{ fontSize: 18 }}>🎬</Text>
-                  </View>
-                  <Text className="text-white/30 text-xs font-medium">Fresh releases for you</Text>
-                </View>
-              </View>
-              <View
-                className="mb-4"
-                style={{
-                  height: 1,
-                  backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                }}
-              />
-              <View style={{ paddingBottom: 90 }}>
-                <View className="flex-row flex-wrap justify-between gap-y-6">
-                  {movies?.map((item: any) => (
-                    <View key={item.id.toString()} style={{ width: '48%' }}>
-                      <MovieCard {...item} />
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </>
-          </View>}
+          </Pressable>
         </View>
+
+        <TornSection
+          background={colors.blood}
+          seed={3}
+          variant="fine"
+          style={{ marginTop: 16 }}
+          contentStyle={{ paddingVertical: 4 }}
+        >
+          <Marquee
+            text="WELCOME TO CINEVERSE · DISCOVER NEW FAVORITES · EXPLORE THE ARCHIVE"
+            variant="displaySm"
+            color={colors.paper}
+            speed={46}
+          />
+        </TornSection>
+
+        <View style={{ paddingHorizontal: grid.screenPadding, marginTop: 18, gap: 10 }}>
+          <SearchField
+            placeholder="Search for a movie"
+            onPress={() => router.push('/search')}
+          />
+
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <PressableScale
+              onPress={() => router.push('/mood' as never)}
+              scaleTo={0.97}
+              accessibilityRole="button"
+              accessibilityLabel={
+                mood === null ? 'Set your mood' : `Mood: ${MOOD_STOPS[mood]}. Change it`
+              }
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: mood === null ? colors.inkRaised : colors.blood,
+                borderRadius: radius.md,
+                borderWidth: 2,
+                borderColor: colors.noir,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+                <Ionicons
+                  name="happy-outline"
+                  size={17}
+                  color={mood === null ? colors.blood : colors.paper}
+                />
+                <Text variant="label" color={colors.paper}>
+                  {mood === null ? 'Set mood' : MOOD_STOPS[mood]}
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={15}
+                color={withAlpha(colors.paper, 0.5)}
+              />
+            </PressableScale>
+
+            <PressableScale
+              onPress={() => router.push('/filters' as never)}
+              scaleTo={0.97}
+              accessibilityRole="button"
+              accessibilityLabel="Filters"
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 9,
+                backgroundColor: colors.inkRaised,
+                borderRadius: radius.md,
+                borderWidth: 2,
+                borderColor: colors.noir,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+              }}
+            >
+              <Ionicons name="options-outline" size={17} color={colors.blood} />
+              <Text variant="label">Filters</Text>
+            </PressableScale>
+
+            <PressableScale
+              onPress={() => router.push('/upcoming' as never)}
+              scaleTo={0.97}
+              accessibilityRole="link"
+              accessibilityLabel="Premieres, coming soon"
+              style={{
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: colors.inkRaised,
+                borderRadius: radius.md,
+                borderWidth: 2,
+                borderColor: colors.noir,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+              }}
+            >
+              <Ionicons name="calendar-outline" size={17} color={colors.blood} />
+            </PressableScale>
+          </View>
+        </View>
+
+        {/* Continue Watching — hides itself entirely until an episode is
+            actually marked, rather than showing an empty rail. */}
+        <ContinueWatchingSection />
+
+        {/* Trending — the red feature band */}
+        {trendingTitles.length > 0 ? (
+          <TornSection
+            background={colors.blood}
+            seed={17}
+            style={{ marginTop: 26 }}
+            contentStyle={{ paddingVertical: 16 }}
+          >
+            <View style={{ paddingHorizontal: grid.screenPadding }}>
+              <Display variant="displaySm" color={colors.paper}>
+                Top trending
+              </Display>
+              <Text variant="osd" color={withAlpha(colors.paper, 0.75)} style={{ marginTop: 4 }}>
+                Across the whole archive today
+              </Text>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              contentContainerStyle={{
+                paddingHorizontal: grid.screenPadding,
+                paddingTop: 16,
+                paddingBottom: 6,
+                gap: 16,
+              }}
+            >
+              {trendingTitles.map((title, index) => (
+                <PolaroidFrame
+                  key={`${title.id}-${index}`}
+                  tilt={tiltFromId(title.id)}
+                  caption={index === 0 ? 'Magic from the first frame' : undefined}
+                  style={{ width: 140 }}
+                >
+                  <PosterCard title={title} rank={index + 1} />
+                </PolaroidFrame>
+              ))}
+            </ScrollView>
+          </TornSection>
+        ) : null}
+
+        {/* Rails */}
+        <View style={{ marginTop: 30, gap: 30 }}>
+          {rails.map((preset) => (
+            <PosterRow key={preset.slug} preset={preset} onSeeAll={openCollection} />
+          ))}
+        </View>
+
+        <Text
+          variant="osd"
+          color={withAlpha(colors.paper, 0.3)}
+          style={{ textAlign: 'center', marginTop: 36 }}
+        >
+          [ END OF REEL ]
+        </Text>
       </ScrollView>
-    </View>
+    </Screen>
   );
 }

@@ -1,22 +1,38 @@
+const { palette, semantic } = require('./theme/palette.js');
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./app/**/*.{js,jsx,ts,tsx}", "./components/**/*.{js,jsx,ts,tsx}"],
-  presets: [require("nativewind/preset")],
+  content: [
+    './app/**/*.{js,jsx,ts,tsx}',
+    './components/**/*.{js,jsx,ts,tsx}',
+  ],
+  presets: [require('nativewind/preset')],
   theme: {
     extend: {
       colors: {
-        primary: "#000000",
-        secondary: "#121212",
-        light: {
-          100: "#FFFFFF",
-          200: "#E0E0E0",
-          300: "#9E9E9E",
-        },
-        dark: {
-          100: "#1E1E1E",
-          200: "#0A0A0A",
-        },
-        accent: "#FF4500",
+        // Raw hues.
+        blood: palette.blood,
+        'blood-deep': palette.bloodDeep,
+        'blood-soft': palette.bloodSoft,
+        ink: palette.ink,
+        'ink-deep': palette.inkDeep,
+        'ink-raised': palette.inkRaised,
+        'ink-soft': palette.inkSoft,
+        paper: palette.paper,
+        'paper-dim': palette.paperDim,
+        'paper-deep': palette.paperDeep,
+        'paper-muted': palette.paperMuted,
+        noir: palette.noir,
+        positive: palette.positive,
+        negative: palette.negative,
+
+        // Semantic aliases — prefer these in components.
+        bg: semantic.bg,
+        surface: semantic.surface,
+        feature: semantic.surfaceFeature,
+      },
+      borderRadius: {
+        card: '14px',
       },
     },
   },

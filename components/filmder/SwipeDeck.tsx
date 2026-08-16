@@ -1,0 +1,417 @@
+import * as Haptics from 'expo-haptics';
+import { forwardRef, useCallback, useImperativeHandle } from 'react';
+import { useWindowDimensions, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
+
+import { Text } from '@/components/ui/Text';
+import type { Title } from '@/lib/api/tmdb/types';
+import { colors, radius, withAlpha } from '@/theme/tokens';
+
+export type SwipeDirection = 'left' | 'right';
+
+export interface SwipeDeckHandle {
+  swipe: (direction: SwipeDirection) => void;
+}
+
+export interface SwipeDeckProps {
+  cards: Title[];
+  onVerdict: (title: Title, direction: SwipeDirection) => void;
+  /**
+   * An upward drag on the top card. NOT a verdict — the card springs home and
+   * the About-film sheet is opened instead, so browsing a synopsis never
+   * silently records a judgement the user did not make.
+   */
+  onSwipeUp?: () => void;
+  renderCard: (title: Title, isTop: boolean) => React.ReactNode;
+}
+
+const SPRING = { damping: 18, stiffness: 180 };
+const FLING_MS = 220;
+/** Cards kept mounted. Two behind the top one is all that is ever visible. */
+const VISIBLE = 3;
+
+/** Axis-lock states. Plain ints, so they cross to the UI runtime for free. */
+const AXIS_NONE = 0;
+const AXIS_SWIPE = 1;
+const AXIS_UP = 2;
+
+/**
+ * Travel (dp) before a drag is classified as horizontal or upward.
+ *
+ * This is NOT dead travel. RNGH re-zeroes `translation` at the moment the
+ * handler activates, so the platform slop is invisible here and the card keeps
+ * tracking the finger while undecided — which lets this bar be generous enough
+ * to read direction reliably.
+ *
+ * Deliberately NOT implemented with `activeOffsetX`/`failOffsetY`: setting any
+ * of those flips RNGH's `hasCustomActivationCriteria`, which discards the
+ * platform touch slop and changes when this pan steals the touch from the
+ * gesture-handler Pressable inside DeckCard. Two pans composed with reciprocal
+ * failOffsets is worse still — RNGH evaluates shouldFail() before
+ * shouldActivate() on the same event, so one batched diagonal move can fail
+ * BOTH handlers and freeze the card until the finger lifts.
+ */
+const AXIS_LOCK = 14;
+/** How much more vertical than horizontal travel reads as "up", not "sideways". */
+const AXIS_BIAS = 1.15;
+/** Cap on how far the card rides up, so it hints rather than leaves. */
+const LIFT_MAX = 80;
+/** Per-frame decay unwinding the few dp of tx banked before the lock resolved. */
+const LIFT_UNWIND = 0.75;
+/** Fraction of screen height an upward drag must cover to open the sheet. */
+const UP_RATIO = 0.13;
+/** Upward flick that opens it regardless of distance (dp/s, negative is up). */
+const UP_VELOCITY = -750;
+
+/**
+ * Throws the top card off screen, then recentres for the card behind it.
+ *
+ * Defined at module scope, taking the shared values as arguments, rather than
+ * as a closure inside the component. `useImperativeHandle` is effect-like, so
+ * anything it closes over is treated by the React Compiler as effect-bound —
+ * and writing to an effect-bound value from a gesture handler is exactly what
+ * its immutability rule rejects. Passing them in keeps every write outside the
+ * component body.
+ */
+function runFling(
+  tx: SharedValue<number>,
+  ty: SharedValue<number>,
+  axis: SharedValue<number>,
+  width: number,
+  direction: SwipeDirection,
+  onDone: (direction: SwipeDirection) => void
+) {
+  'worklet';
+  axis.value = AXIS_NONE;
+  const sign = direction === 'right' ? 1 : -1;
+
+  ty.value = withTiming(ty.value + 40, { duration: FLING_MS });
+  tx.value = withTiming(sign * width * 1.5, { duration: FLING_MS }, (finished) => {
+    if (!finished) return;
+    // Recentre before the verdict lands: the flung card is about to unmount and
+    // the one behind takes this exact position, so it has to start at rest.
+    tx.value = 0;
+    ty.value = 0;
+    runOnJS(onDone)(direction);
+  });
+}
+
+/** Snaps the card back when a drag did not pass the commit threshold. */
+function runSnapBack(
+  tx: SharedValue<number>,
+  ty: SharedValue<number>,
+  axis: SharedValue<number>
+) {
+  'worklet';
+  axis.value = AXIS_NONE;
+  tx.value = withSpring(0, SPRING);
+  ty.value = withSpring(0, SPRING);
+}
+
+/** Releases the lock at the start of each drag. */
+function runAxisReset(axis: SharedValue<number>) {
+  'worklet';
+  axis.value = AXIS_NONE;
+}
+
+/**
+ * Springs the card home and hands off to JS to open the About sheet.
+ *
+ * The card returns to rest rather than flying away: it is still the current
+ * card, and the sheet is about to slide up over it.
+ */
+function runRequestAbout(
+  tx: SharedValue<number>,
+  ty: SharedValue<number>,
+  axis: SharedValue<number>,
+  onRequest: () => void
+) {
+  'worklet';
+  axis.value = AXIS_NONE;
+  tx.value = withSpring(0, SPRING);
+  ty.value = withSpring(0, SPRING);
+  runOnJS(onRequest)();
+}
+
+/**
+ * Tracks the drag while the finger is down, and decides which axis owns it.
+ *
+ * Until the lock resolves the card follows the finger exactly as it always did,
+ * so classification costs no dead travel. Once it resolves upward the card
+ * clamps to LIFT_MAX — continuous at the crossover, since |y| >= AXIS_LOCK <
+ * LIFT_MAX there — and the banked horizontal offset decays away over a few
+ * frames rather than snapping to zero.
+ */
+function runDrag(
+  tx: SharedValue<number>,
+  ty: SharedValue<number>,
+  axis: SharedValue<number>,
+  x: number,
+  y: number
+) {
+  'worklet';
+  if (axis.value === AXIS_NONE) {
+    const ax = Math.abs(x);
+    const ay = Math.abs(y);
+    if (y < 0 && ay >= AXIS_LOCK && ay > ax * AXIS_BIAS) {
+      axis.value = AXIS_UP;
+    } else if (ax >= AXIS_LOCK || y > AXIS_LOCK) {
+      // A downward drag locks to SWIPE too, so a gesture that starts downward
+      // cannot flip into the sheet halfway through.
+      axis.value = AXIS_SWIPE;
+    }
+  }
+
+  if (axis.value === AXIS_UP) {
+    ty.value = Math.min(0, Math.max(y, -LIFT_MAX));
+    tx.value = tx.value * LIFT_UNWIND;
+    return;
+  }
+
+  tx.value = x;
+  ty.value = y;
+}
+
+const Stamp = ({ label, style }: { label: string; style: any }) => (
+  <Animated.View
+    pointerEvents="none"
+    style={[
+      {
+        position: 'absolute',
+        // Below the card's chip row, which runs to roughly y=41. At the old
+        // top: 30 the stamps sat on top of it during every drag.
+        top: 62,
+        paddingHorizontal: 14,
+        paddingVertical: 7,
+        borderWidth: 3,
+        borderRadius: radius.sm,
+        borderColor: colors.paper,
+        backgroundColor: withAlpha(colors.noir, 0.35),
+        zIndex: 10,
+      },
+      style,
+    ]}
+  >
+    <Text variant="label" color={colors.paper} style={{ fontSize: 16, letterSpacing: 2 }}>
+      {label}
+    </Text>
+  </Animated.View>
+);
+
+/**
+ * Tinder-style card deck.
+ *
+ * Hand-rolled on Gesture.Pan + Reanimated rather than a library: both are
+ * already dependencies, and the alternatives are either PanResponder-era
+ * (untested on the New Architecture) or thin enough that stamp overlays and
+ * imperative button swipes would mean forking them anyway.
+ *
+ * The thumbs buttons drive this through the same shared values the gesture
+ * does, via the imperative handle — one code path, so the accessible route
+ * cannot drift from the gesture route.
+ *
+ * Note on structure: `tx`/`ty` deliberately appear in NO hook dependency array,
+ * and `fling` is an ordinary function rather than a useCallback. The React
+ * Compiler's immutability rule rejects mutating a value that is also listed as
+ * a hook dependency, which is exactly what a memoized gesture handler over
+ * shared values would be.
+ */
+export const SwipeDeck = forwardRef<SwipeDeckHandle, SwipeDeckProps>(
+  function SwipeDeck({ cards, onVerdict, onSwipeUp, renderCard }, ref) {
+    const { width, height } = useWindowDimensions();
+    const tx = useSharedValue(0);
+    const ty = useSharedValue(0);
+    /** AXIS_NONE | AXIS_SWIPE | AXIS_UP for the drag in progress. */
+    const axis = useSharedValue(AXIS_NONE);
+
+    const top = cards[0];
+
+    const commit = useCallback(
+      (direction: SwipeDirection) => {
+        if (!top) return;
+        Haptics.impactAsync(
+          direction === 'right'
+            ? Haptics.ImpactFeedbackStyle.Medium
+            : Haptics.ImpactFeedbackStyle.Light
+        );
+        onVerdict(top, direction);
+      },
+      [top, onVerdict]
+    );
+
+    // Normalised here rather than inside the worklet: runOnJS(undefined) throws,
+    // and the prop is optional.
+    const requestAbout = useCallback(() => {
+      onSwipeUp?.();
+    }, [onSwipeUp]);
+
+    useImperativeHandle(ref, () => ({
+      swipe: (direction: SwipeDirection) =>
+        runFling(tx, ty, axis, width, direction, commit),
+    }));
+
+    const pan = Gesture.Pan()
+      .onStart(() => {
+        runAxisReset(axis);
+      })
+      .onUpdate((event) => {
+        runDrag(tx, ty, axis, event.translationX, event.translationY);
+      })
+      .onEnd((event, success) => {
+        // `success` is false when an ACTIVE handler was CANCELLED. Without this,
+        // a system gesture stealing the touch mid-swipe — the Android back-swipe
+        // edge, an iOS notification pull — commits a verdict the user never gave.
+        if (!success) return;
+
+        if (axis.value === AXIS_UP) {
+          const opened =
+            event.translationY < -height * UP_RATIO ||
+            event.velocityY < UP_VELOCITY;
+          if (opened) {
+            runRequestAbout(tx, ty, axis, requestAbout);
+          } else {
+            runSnapBack(tx, ty, axis);
+          }
+          return;
+        }
+
+        const passedDistance = Math.abs(tx.value) > width * 0.28;
+        const passedVelocity = Math.abs(event.velocityX) > 800;
+
+        if (passedDistance || passedVelocity) {
+          // Fall back to the velocity's sign: on a velocity-only commit tx can
+          // still be 0, which `tx.value > 0` alone read as a left swipe.
+          const drift = tx.value !== 0 ? tx.value : event.velocityX;
+          runFling(tx, ty, axis, width, drift > 0 ? 'right' : 'left', commit);
+        } else {
+          runSnapBack(tx, ty, axis);
+        }
+      })
+      .onFinalize((_event, success) => {
+        // Fires for FAILED/CANCELLED whether or not the handler ever activated.
+        // onEnd is skipped in the never-activated case, so this is the only
+        // place a stranded card gets put back.
+        if (!success) runSnapBack(tx, ty, axis);
+      });
+
+    const topStyle = useAnimatedStyle(() => ({
+      transform: [
+        { translateX: tx.value },
+        { translateY: ty.value },
+        {
+          rotate: `${interpolate(
+            tx.value,
+            [-width, 0, width],
+            [-12, 0, 12],
+            Extrapolation.CLAMP
+          )}deg`,
+        },
+        // Recedes as it rides up, so the card reads as passing behind the
+        // rising sheet rather than off the top of the screen. A positive ty —
+        // the fling's +40, or a downward drag — clamps to 1 and is unaffected.
+        {
+          scale: interpolate(
+            ty.value,
+            [-LIFT_MAX, 0],
+            [0.93, 1],
+            Extrapolation.CLAMP
+          ),
+        },
+      ],
+    }));
+
+    const likeStyle = useAnimatedStyle(() => ({
+      opacity: interpolate(tx.value, [0, width * 0.25], [0, 1], Extrapolation.CLAMP),
+      transform: [{ rotate: '-12deg' }],
+      left: 24,
+    }));
+
+    const nopeStyle = useAnimatedStyle(() => ({
+      opacity: interpolate(tx.value, [0, -width * 0.25], [0, 1], Extrapolation.CLAMP),
+      transform: [{ rotate: '12deg' }],
+      right: 24,
+    }));
+
+    // The cards behind ease forward off the top card's progress rather than
+    // running gesture maths of their own.
+    const progress = useDerivedValue(() =>
+      interpolate(Math.abs(tx.value), [0, width * 0.5], [0, 1], Extrapolation.CLAMP)
+    );
+
+    const secondStyle = useAnimatedStyle(() => ({
+      transform: [
+        { scale: interpolate(progress.value, [0, 1], [0.94, 0.98]) },
+        { translateY: interpolate(progress.value, [0, 1], [14, 7]) },
+      ],
+    }));
+
+    const thirdStyle = useAnimatedStyle(() => ({
+      transform: [
+        { scale: interpolate(progress.value, [0, 1], [0.88, 0.94]) },
+        { translateY: interpolate(progress.value, [0, 1], [28, 14]) },
+      ],
+    }));
+
+    const stack = cards.slice(0, VISIBLE);
+
+    return (
+      <View style={{ flex: 1 }}>
+        {stack
+          .map((card, index) => {
+            const isTop = index === 0;
+            const style = index === 0 ? topStyle : index === 1 ? secondStyle : thirdStyle;
+
+            const content = (
+              <Animated.View
+                key={card.id}
+                style={[
+                  {
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: VISIBLE - index,
+                  },
+                  style,
+                ]}
+              >
+                {renderCard(card, isTop)}
+
+                {isTop ? (
+                  <>
+                    <Stamp label="Seen it" style={likeStyle} />
+                    <Stamp label="Nope" style={nopeStyle} />
+                  </>
+                ) : null}
+              </Animated.View>
+            );
+
+            return isTop ? (
+              <GestureDetector gesture={pan} key={card.id}>
+                {content}
+              </GestureDetector>
+            ) : (
+              content
+            );
+          })
+          // Painter's order: the top card renders last so it sits above the
+          // stack on Android, where zIndex alone is unreliable.
+          .reverse()}
+      </View>
+    );
+  }
+);
+
+export default SwipeDeck;

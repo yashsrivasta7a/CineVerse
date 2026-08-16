@@ -1,8 +1,50 @@
-import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'
 import React, { useState } from 'react'
+import { ActivityIndicator, Alert, Pressable, TextInput, View } from 'react-native'
 import { Stack, useRouter } from 'expo-router'
 import { useUser } from '@clerk/clerk-expo'
 import { Ionicons } from '@expo/vector-icons'
+
+import { Screen } from '@/components/ui/Screen'
+import { Text } from '@/components/ui/Text'
+import { Display } from '@/components/ui/Display'
+import { Button } from '@/components/ui/Button'
+import { colors, grid, radius, withAlpha } from '@/theme/tokens'
+import { typography } from '@/theme/typography'
+
+const Field = ({
+    label,
+    value,
+    onChangeText,
+    placeholder,
+}: {
+    label: string
+    value: string
+    onChangeText: (text: string) => void
+    placeholder: string
+}) => (
+    <View style={{ gap: 7 }}>
+        <Text variant="label" color={withAlpha(colors.paper, 0.6)}>{label}</Text>
+        <TextInput
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={withAlpha(colors.ink, 0.45)}
+            accessibilityLabel={label}
+            style={[
+                typography.body,
+                {
+                    backgroundColor: colors.paper,
+                    color: colors.ink,
+                    borderRadius: radius.sm,
+                    borderWidth: 2,
+                    borderColor: colors.noir,
+                    paddingHorizontal: 13,
+                    paddingVertical: 12,
+                },
+            ]}
+        />
+    </View>
+)
 
 export default function EditProfile() {
     const { user } = useUser()
@@ -15,69 +57,70 @@ export default function EditProfile() {
         if (!user) return
         setLoading(true)
         try {
-            await user.update({
-                firstName,
-                lastName,
-            })
-            Alert.alert('Success', 'Profile updated successfully')
+            await user.update({ firstName, lastName })
+            Alert.alert('Saved', 'Your profile has been updated.')
             router.back()
         } catch (error: any) {
-            console.error(error)
-            Alert.alert('Error', error.pageMessage || 'Failed to update profile')
+            // Clerk returns errors under `errors[]`; the previous code read
+            // `error.pageMessage`, which never exists, so every failure showed
+            // the generic fallback.
+            const message =
+                error?.errors?.[0]?.longMessage ||
+                error?.errors?.[0]?.message ||
+                'Could not update your profile.'
+            Alert.alert('Something went wrong', message)
         } finally {
             setLoading(false)
         }
     }
 
     return (
-        <View className="flex-1 bg-primary px-6 pt-6">
-            <Stack.Screen options={{
-                headerShown: true,
-                headerTitle: 'Edit Profile',
-                headerTintColor: '#fff',
-                headerStyle: { backgroundColor: '#000' },
-                headerLeft: () => (
-                    <TouchableOpacity onPress={() => router.back()} className="mr-4">
-                        <Ionicons name="arrow-back" size={24} color="#fff" />
-                    </TouchableOpacity>
-                )
-            }} />
+        <Screen osd={{ left: 'MEMBER', right: 'EDIT&SAVE' }}>
+            <Stack.Screen options={{ headerShown: false }} />
 
-            <View className="space-y-6 mt-4">
-                <View>
-                    <Text className="text-light-300 mb-2 font-medium">First Name</Text>
-                    <TextInput
+            <View style={{ paddingHorizontal: grid.screenPadding, paddingTop: 6, gap: 22 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Pressable
+                        onPress={() => router.back()}
+                        accessibilityRole="button"
+                        accessibilityLabel="Go back"
+                        style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 19,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: colors.inkRaised,
+                            borderWidth: 2,
+                            borderColor: colors.noir,
+                        }}
+                    >
+                        <Ionicons name="arrow-back" size={18} color={colors.paper} />
+                    </Pressable>
+                    <Display variant="displaySm">Edit profile</Display>
+                </View>
+
+                <View style={{ gap: 16 }}>
+                    <Field
+                        label="First name"
                         value={firstName}
                         onChangeText={setFirstName}
                         placeholder="Enter first name"
-                        placeholderTextColor="#666"
-                        className="bg-dark-100 text-light-100 p-4 rounded-xl border border-dark-200 focus:border-accent"
                     />
-                </View>
-
-                <View>
-                    <Text className="text-light-300 mb-2 mt-4 font-medium">Last Name</Text>
-                    <TextInput
+                    <Field
+                        label="Last name"
                         value={lastName}
                         onChangeText={setLastName}
                         placeholder="Enter last name"
-                        placeholderTextColor="#666"
-                        className="bg-dark-100 text-light-100 p-4 rounded-xl border border-dark-200 focus:border-accent"
                     />
                 </View>
 
-                <TouchableOpacity
-                    onPress={handleSave}
-                    disabled={loading}
-                    className={`bg-accent p-4 rounded-xl items-center mt-8 ${loading ? 'opacity-70' : ''}`}
-                >
-                    {loading ? (
-                        <ActivityIndicator color="white" />
-                    ) : (
-                        <Text className="text-white font-bold text-lg">Save Changes</Text>
-                    )}
-                </TouchableOpacity>
+                {loading ? (
+                    <ActivityIndicator color={colors.blood} />
+                ) : (
+                    <Button label="Save changes" onPress={handleSave} />
+                )}
             </View>
-        </View>
+        </Screen>
     )
 }

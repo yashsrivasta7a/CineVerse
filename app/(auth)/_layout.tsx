@@ -1,6 +1,8 @@
 import { Redirect, Stack } from 'expo-router'
 import { useAuth } from '@clerk/clerk-expo'
 
+import { colors } from '@/theme/tokens'
+
 export default function AuthRoutesLayout() {
     const { isSignedIn } = useAuth()
 
@@ -12,11 +14,10 @@ export default function AuthRoutesLayout() {
         <Stack
             screenOptions={{
                 headerShown: false,
-                contentStyle: { backgroundColor: '#000000' },
+                contentStyle: { backgroundColor: colors.ink },
             }}
         >
             <Stack.Screen name="sign-in" />
-            <Stack.Screen name="sign-up" />
         </Stack>
     )
 }

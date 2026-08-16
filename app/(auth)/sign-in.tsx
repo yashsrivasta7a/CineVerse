@@ -1,19 +1,19 @@
 import { useOAuth } from '@clerk/clerk-expo'
 import * as Linking from 'expo-linking'
-import { Link, useRouter } from 'expo-router'
+import { useRouter } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
 import React, { useCallback, useEffect, useState } from 'react'
-import {
-    Platform,
-    Pressable,
-    Text,
-    View,
-    ActivityIndicator,
-    Image,
-} from 'react-native'
+import { ActivityIndicator, Platform, Pressable, ScrollView, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
-import { icons } from '@/constants/icons'
-import AuroraBackground from '@/components/AuroraBackground'
+import { Ionicons } from '@expo/vector-icons'
+
+import { Screen } from '@/components/ui/Screen'
+import { Text } from '@/components/ui/Text'
+import { Display } from '@/components/ui/Display'
+import { DashedCard } from '@/components/kino/DashedCard'
+import { FilmStrip } from '@/components/kino/FilmStrip'
+import { Barcode } from '@/components/kino/Barcode'
+import { colors, grid, radius, withAlpha } from '@/theme/tokens'
 
 const useWarmUpBrowser = () => {
     useEffect(() => {
@@ -39,27 +39,18 @@ export default function SignInScreen() {
             setLoading(true)
             setError('')
 
-            // Get ALL values from the OAuth result — including signIn & signUp
             const { createdSessionId, signIn, signUp, setActive } = await startOAuthFlow({
                 redirectUrl: Linking.createURL('/'),
             })
 
-            console.log('=== OAuth Debug ===')
-            console.log('createdSessionId:', createdSessionId)
-            console.log('signIn?.status:', signIn?.status)
-            console.log('signUp?.status:', signUp?.status)
-
-            // Case 1: Session created directly (works for new accounts)
             if (createdSessionId && setActive) {
                 await setActive({ session: createdSessionId })
                 router.replace('/')
                 return
             }
 
-            // Case 2: Existing account — signUp has 'transferable' status
-            // Must transfer to signIn to complete the flow
+            // An existing account comes back as a transferable signUp.
             if ((signUp?.status as string) === 'transferable' && signIn) {
-                console.log('Transfer: signUp -> signIn')
                 const response = await signIn.create({ transfer: true })
                 if (response.createdSessionId && setActive) {
                     await setActive({ session: response.createdSessionId })
@@ -68,9 +59,7 @@ export default function SignInScreen() {
                 }
             }
 
-            // Case 3: Reverse transfer
             if ((signIn?.status as string) === 'transferable' && signUp) {
-                console.log('Transfer: signIn -> signUp')
                 const response = await signUp.create({ transfer: true })
                 if (response.createdSessionId && setActive) {
                     await setActive({ session: response.createdSessionId })
@@ -79,12 +68,8 @@ export default function SignInScreen() {
                 }
             }
 
-            // If we reach here, nothing worked
-            console.log('No session created. signIn:', JSON.stringify(signIn, null, 2))
-            console.log('No session created. signUp:', JSON.stringify(signUp, null, 2))
             setError('Sign in was not completed. Please try again.')
         } catch (err: any) {
-            console.error('OAuth error:', err)
             const message =
                 err?.errors?.[0]?.longMessage ||
                 err?.errors?.[0]?.message ||
@@ -96,84 +81,118 @@ export default function SignInScreen() {
     }, [startOAuthFlow, router])
 
     return (
-        <View className="flex-1 bg-black">
+        <Screen
+            background={colors.ink}
+            edges={['top', 'bottom']}
+            osd={{ left: 'RETRO&CINEMA', right: 'PLAY&ENTER', rec: true }}
+        >
             <StatusBar style="light" />
 
-            {/* Animated Aurora Background */}
-            <View className="absolute inset-0 z-0">
-                <AuroraBackground
-                    // @ts-ignore
-                    colorStops={['#000000', '#1A1A1A', '#FF4500']}
-                    blend={0.5}
-                    amplitude={1.2}
-                    speed={0.5}
-                />
-            </View>
+            <ScrollView
+                contentContainerStyle={{
+                    flexGrow: 1,
+                    justifyContent: 'center',
+                    paddingHorizontal: grid.screenPadding,
+                    paddingVertical: 24,
+                }}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Masthead */}
+                <View style={{ alignItems: 'center', gap: 2, marginBottom: 8 }}>
+                    <Display variant="displayXl" align="center">KINOROY</Display>
+                    <Text
+                        variant="script"
+                        color={colors.blood}
+                        style={{ transform: [{ rotate: '-4deg' }] }}
+                    >
+                        Filmder Cinema
+                    </Text>
+                </View>
 
-            {/* Content Container - Centered */}
-            <View className="flex-1 justify-center items-center px-5 z-10">
+                <FilmStrip height={12} pitch={18} style={{ marginVertical: 20 }} />
 
-                {/* Glassmorphism Card */}
-                <View className="w-full max-w-[400px] bg-neutral-900/90 rounded-3xl py-10 px-6 items-center border border-accent/30 shadow-2xl">
+                {/* Login card */}
+                <DashedCard contentStyle={{ padding: 20, gap: 18 }}>
+                    <View style={{ alignItems: 'center', gap: 10 }}>
+                        <Display variant="displaySm" color={colors.paper} align="center">
+                            For good recommendations, sign in
+                        </Display>
 
-                    {/* Logo Section */}
-                    <View className="mb-6">
-                        <View className="w-20 h-20 rounded-full bg-black justify-center items-center border-2 border-accent shadow-lg shadow-accent/50">
-                            <Image source={icons.logo} className="w-12 h-12" resizeMode="contain" />
-                        </View>
+                        <Text
+                            variant="bodySm"
+                            color={withAlpha(colors.paper, 0.85)}
+                            style={{ textAlign: 'center' }}
+                        >
+                            Your vault, moods and picks follow you across devices.
+                        </Text>
                     </View>
 
-                    {/* Text Section */}
-                    <View className="items-center mb-8">
-                        <Text className="text-3xl font-extrabold text-white mb-2 text-center tracking-wide">
-                            Welcome Back
-                        </Text>
-                        <Text className="text-base text-gray-400 text-center font-medium">
-                            Enter the CineVerse
-                        </Text>
-                    </View>
-
-                    {/* Error Message */}
                     {error ? (
-                        <View className="w-full bg-accent/10 border border-accent/30 rounded-xl p-3 mb-5">
-                            <Text className="text-accent text-sm text-center font-semibold">{error}</Text>
+                        <View
+                            style={{
+                                padding: 10,
+                                borderRadius: radius.sm,
+                                backgroundColor: colors.bloodDeep,
+                                borderWidth: 1,
+                                borderColor: withAlpha(colors.paper, 0.4),
+                            }}
+                        >
+                            <Text
+                                variant="bodySm"
+                                color={colors.paper}
+                                style={{ textAlign: 'center' }}
+                            >
+                                {error}
+                            </Text>
                         </View>
                     ) : null}
 
-                    {/* Google Button */}
-                    <View className="w-full mb-6">
-                        <Pressable
-                            className={`w-full h-14 bg-white rounded-xl flex-row items-center justify-center shadow-md ${loading ? 'opacity-70' : ''} active:opacity-90 active:scale-95`}
-                            onPress={onGooglePress}
-                            disabled={loading}
-                        >
-                            {loading ? (
-                                <ActivityIndicator size="small" color="#000000" />
-                            ) : (
-                                <View className="flex-row items-center gap-3">
-                                    <Text className="text-2xl font-black text-[#4285F4]">G</Text>
-                                    <Text className="text-base font-bold text-black">Continue with Google</Text>
-                                </View>
-                            )}
-                        </Pressable>
-                    </View>
+                    <Pressable
+                        onPress={onGooglePress}
+                        disabled={loading}
+                        accessibilityRole="button"
+                        accessibilityLabel="Continue with Google"
+                        accessibilityState={{ disabled: loading }}
+                        style={({ pressed }) => ({
+                            height: 54,
+                            borderRadius: radius.md,
+                            backgroundColor: colors.noir,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 10,
+                            opacity: loading ? 0.65 : 1,
+                            transform: [{ translateY: pressed ? 2 : 0 }],
+                        })}
+                    >
+                        {loading ? (
+                            <ActivityIndicator size="small" color={colors.paper} />
+                        ) : (
+                            <>
+                                <Ionicons name="logo-google" size={18} color={colors.paper} />
+                                <Text variant="label" color={colors.paper}>
+                                    Continue with Google
+                                </Text>
+                            </>
+                        )}
+                    </Pressable>
 
-                    {/* Footer Links */}
-                    <View className="flex-row items-center">
-                        <Text className="text-gray-400 text-sm">New to CineVerse? </Text>
-                        <Link href="/sign-up" asChild>
-                            <Pressable>
-                                <Text className="text-accent text-sm font-bold">Create Account</Text>
-                            </Pressable>
-                        </Link>
+                    <View style={{ alignItems: 'center', gap: 8 }}>
+                        <Barcode value="kinoroy-admit-one" height={24} bars={26} color={colors.paper} />
+                        <Text variant="osd" color={withAlpha(colors.paper, 0.75)}>
+                            Admit one
+                        </Text>
                     </View>
-                </View>
+                </DashedCard>
 
-                {/* Terms text outside card */}
-                <Text className="mt-6 text-gray-600 text-xs text-center px-4">
-                    By continuing, you agree to our Terms & Privacy Policy
+                <Text
+                    variant="osd"
+                    color={withAlpha(colors.paper, 0.4)}
+                    style={{ textAlign: 'center', marginTop: 22 }}
+                >
+                    By continuing you agree to our terms
                 </Text>
-            </View>
-        </View>
+            </ScrollView>
+        </Screen>
     )
 }

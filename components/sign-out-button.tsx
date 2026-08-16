@@ -1,58 +1,58 @@
 import { useClerk } from '@clerk/clerk-expo'
-import { useRouter } from 'expo-router'
-import { Pressable, Text, StyleSheet, ActivityIndicator } from 'react-native'
-import React, { useState } from 'react'
+import { useState } from 'react'
+import { ActivityIndicator, Pressable, View } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+
+import { Text } from '@/components/ui/Text'
+import { colors, radius } from '@/theme/tokens'
 
 export const SignOutButton = () => {
-    const { signOut } = useClerk()
-    const router = useRouter()
-    const [loading, setLoading] = useState(false)
+  const { signOut } = useClerk()
+  const [loading, setLoading] = useState(false)
 
-    const handleSignOut = async () => {
-        try {
-            setLoading(true)
-            await signOut()
-            router.replace('/sign-in')
-        } catch (err) {
-            console.error(JSON.stringify(err, null, 2))
-        } finally {
-            setLoading(false)
-        }
+  const handleSignOut = async () => {
+    setLoading(true)
+    try {
+      await signOut()
+    } finally {
+      setLoading(false)
     }
+  }
 
-    return (
-        <Pressable
-            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-            onPress={handleSignOut}
-            disabled={loading}
+  return (
+    <Pressable
+      onPress={handleSignOut}
+      disabled={loading}
+      accessibilityRole="button"
+      accessibilityLabel="Sign out"
+      accessibilityState={{ disabled: loading }}
+      style={({ pressed }) => ({
+        backgroundColor: colors.blood,
+        borderRadius: radius.md,
+        borderWidth: 2,
+        borderColor: colors.noir,
+        paddingVertical: 14,
+        opacity: loading ? 0.6 : 1,
+        transform: [{ translateY: pressed ? 2 : 0 }],
+      })}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color={colors.paper} />
+      ) : (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+          }}
         >
-            {loading ? (
-                <ActivityIndicator size="small" color="#FF4500" />
-            ) : (
-                <Text style={styles.buttonText}>Sign Out</Text>
-            )}
-        </Pressable>
-    )
+          <Ionicons name="log-out-outline" size={16} color={colors.paper} />
+          <Text variant="label" color={colors.paper}>Sign out</Text>
+        </View>
+      )}
+    </Pressable>
+  )
 }
 
-const styles = StyleSheet.create({
-    button: {
-        backgroundColor: 'rgba(255, 69, 0, 0.12)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 69, 0, 0.3)',
-        paddingVertical: 14,
-        paddingHorizontal: 24,
-        borderRadius: 12,
-        alignItems: 'center',
-        width: '100%',
-    },
-    buttonPressed: {
-        opacity: 0.7,
-        transform: [{ scale: 0.98 }],
-    },
-    buttonText: {
-        color: '#FF4500',
-        fontWeight: '700',
-        fontSize: 15,
-    },
-})
+export default SignOutButton

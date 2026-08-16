@@ -1,61 +1,118 @@
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native'
-import React, { useCallback } from 'react'
+import React, { useCallback, useMemo } from 'react'
+import { ActivityIndicator, ScrollView, View } from 'react-native'
 import { useUser } from '@clerk/clerk-expo'
-import { fetchBookmarkedMovies } from '@/services/api'
-import MovieCard from '@/components/MovieCard'
 import { useFocusEffect } from 'expo-router'
-import { StatusBar } from 'expo-status-bar'
 import { Ionicons } from '@expo/vector-icons'
-import useFetch from '@/services/useFetch'
-import { SafeAreaView } from 'react-native-safe-area-context'
+
+import { Screen } from '@/components/ui/Screen'
+import { Text } from '@/components/ui/Text'
+import { Display } from '@/components/ui/Display'
+import { TicketCard } from '@/components/kino/TicketCard'
+import { Barcode } from '@/components/kino/Barcode'
+import { PosterCard } from '@/components/media/PosterCard'
+
+import { useBookmarkedMovies } from '@/lib/queries/bookmarks'
+import { useGridWidth } from '@/lib/hooks/useGridWidth'
+import { normalizeMovieDetails } from '@/lib/api/tmdb/normalize'
+import { colors, grid, withAlpha } from '@/theme/tokens'
 
 const Bookmark = () => {
     const { user } = useUser();
 
-    const { data: bookmarks, loading, error, silentRefetch } = useFetch(
-        () => fetchBookmarkedMovies(user?.id || ''),
-        !!user?.id
-    );
+    // Each title is its own cache entry, so one failing lookup no longer blanks
+    // the whole watchlist, and opening a saved film is instant.
+    const { movies, isPending, refetch, failedCount, syncError } =
+        useBookmarkedMovies(user?.id);
+    const { itemWidth, gutter } = useGridWidth(2);
 
+    // Unconditional: the list is read from SQLite, so it refreshes on focus
+    // whether or not there is a signed-in user or a reachable backend.
     useFocusEffect(
         useCallback(() => {
-            if (user?.id) {
-                silentRefetch();
-            }
-        }, [user, silentRefetch])
+            refetch();
+        }, [refetch])
     );
 
-    return (
-        <SafeAreaView className="flex-1 bg-primary px-4 pt-14">
-            <StatusBar style="light" />
-            <Text className="text-2xl font-bold text-white mb-6">My Watchlist</Text>
+    const titles = useMemo(() => movies.map(normalizeMovieDetails), [movies]);
 
-            {loading ? (
-                <View className="flex-1 justify-center items-center">
-                    <ActivityIndicator size="large" color="#FF4500" />
-                </View>
-            ) : !bookmarks || bookmarks.length === 0 ? (
-                <View className="flex-1 justify-center items-center mt-[-100px]">
-                    <View className="bg-dark-100 p-6 rounded-full mb-6 border border-white/5">
-                        <Ionicons name="bookmark-outline" size={64} color="#555" />
-                    </View>
-                    <Text className="text-white text-xl font-bold mb-2">No bookmarks yet</Text>
-                    <Text className="text-light-300 text-center px-10">
-                        Movies you bookmark will appear here for easy access.
-                    </Text>
+    return (
+        <Screen osd={{ left: 'THE VAULT', right: 'SAVED&KEPT' }}>
+            <View style={{ paddingHorizontal: grid.screenPadding, paddingTop: 6 }}>
+                <Display variant="display">My vault</Display>
+                <Text
+                    variant="script"
+                    color={colors.blood}
+                    style={{ marginTop: -2, marginLeft: 4, transform: [{ rotate: '-3deg' }] }}
+                >
+                    kept for later
+                </Text>
+            </View>
+
+            {isPending ? (
+                <ActivityIndicator size="large" color={colors.blood} style={{ marginTop: 60 }} />
+            ) : titles.length === 0 ? (
+                <View style={{ paddingHorizontal: grid.screenPadding, marginTop: 34 }}>
+                    <TicketCard pageBackground={colors.ink}>
+                        <View style={{ padding: 22, alignItems: 'center', gap: 10 }}>
+                            <Ionicons name="bookmark-outline" size={40} color={colors.blood} />
+                            <Text variant="displaySm" color={colors.ink} style={{ textAlign: 'center' }}>
+                                Vault is empty
+                            </Text>
+                            <Text
+                                variant="bodySm"
+                                color={withAlpha(colors.ink, 0.7)}
+                                style={{ textAlign: 'center' }}
+                            >
+                                Films you save get filed here, ready when you are.
+                            </Text>
+                        </View>
+                        <View style={{ alignItems: 'center', paddingBottom: 18, paddingTop: 26 }}>
+                            <Barcode value="empty-vault" height={22} />
+                        </View>
+                    </TicketCard>
                 </View>
             ) : (
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-                    <View className="flex-row flex-wrap justify-between gap-y-6">
-                        {bookmarks.map((item: any) => (
-                            <View key={item.id} style={{ width: '32%' }}>
-                                <MovieCard {...item} />
-                            </View>
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ paddingTop: 22, paddingBottom: 130 }}
+                >
+                    {syncError ? (
+                        <Text
+                            variant="bodySm"
+                            color={withAlpha(colors.paper, 0.6)}
+                            style={{ paddingHorizontal: grid.screenPadding, marginBottom: 14 }}
+                        >
+                            Showing your saved list from this device — it couldn&apos;t
+                            sync just now.
+                        </Text>
+                    ) : null}
+
+                    {failedCount > 0 ? (
+                        <Text
+                            variant="bodySm"
+                            color={withAlpha(colors.paper, 0.6)}
+                            style={{ paddingHorizontal: grid.screenPadding, marginBottom: 14 }}
+                        >
+                            {failedCount} saved {failedCount > 1 ? 'films' : 'film'} couldn&apos;t be loaded.
+                        </Text>
+                    ) : null}
+
+                    <View
+                        style={{
+                            flexDirection: 'row',
+                            flexWrap: 'wrap',
+                            gap: gutter,
+                            rowGap: 24,
+                            paddingHorizontal: grid.screenPadding,
+                        }}
+                    >
+                        {titles.map((title) => (
+                            <PosterCard key={title.id} title={title} style={{ width: itemWidth }} />
                         ))}
                     </View>
                 </ScrollView>
             )}
-        </SafeAreaView>
+        </Screen>
     )
 }
 
