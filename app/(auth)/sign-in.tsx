@@ -10,9 +10,9 @@ import { Ionicons } from '@expo/vector-icons'
 import { Screen } from '@/components/ui/Screen'
 import { Text } from '@/components/ui/Text'
 import { Display } from '@/components/ui/Display'
-import { DashedCard } from '@/components/kino/DashedCard'
-import { FilmStrip } from '@/components/kino/FilmStrip'
-import { Barcode } from '@/components/kino/Barcode'
+import { DashedCard } from '@/components/decor/DashedCard'
+import { FilmStrip } from '@/components/decor/FilmStrip'
+import { Barcode } from '@/components/decor/Barcode'
 import { colors, grid, radius, withAlpha } from '@/theme/tokens'
 
 const useWarmUpBrowser = () => {

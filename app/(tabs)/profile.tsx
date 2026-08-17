@@ -9,7 +9,7 @@ import { Alert, ScrollView, View } from 'react-native';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
-import { SignOutButton } from '@/components/sign-out-button';
+import { SignOutButton } from '@/components/ui/SignOutButton';
 import { clearVerdicts, getTasteSignals, getVerdictCounts } from '@/db/queries/verdicts';
 import { useGenres } from '@/lib/queries/reference';
 import { MOOD_STOPS } from '@/lib/recommend/moods';

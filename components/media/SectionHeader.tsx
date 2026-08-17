@@ -3,7 +3,7 @@ import { View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Display } from '@/components/ui/Display';
 import { Text } from '@/components/ui/Text';
-import { FilmStrip } from '@/components/kino/FilmStrip';
+import { FilmStrip } from '@/components/decor/FilmStrip';
 import { colors, withAlpha } from '@/theme/tokens';
 
 export interface SectionHeaderProps {

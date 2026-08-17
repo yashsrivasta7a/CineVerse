@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
  */
 import { Pressable } from 'react-native-gesture-handler';
 
-import { WINDOW_RADIUS } from '@/components/filmder/DeckTicket';
+import { WINDOW_RADIUS } from '@/components/deck/DeckTicket';
 import { Chip } from '@/components/ui/Chip';
 import { Text } from '@/components/ui/Text';
 import { backdropUrlOrPlaceholder } from '@/lib/api/tmdb/images';

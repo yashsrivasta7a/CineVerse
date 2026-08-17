@@ -21,8 +21,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FilmStrip } from '@/components/kino/FilmStrip';
-import { TornEdge } from '@/components/kino/TornEdge';
+import { FilmStrip } from '@/components/decor/FilmStrip';
+import { TornEdge } from '@/components/decor/TornEdge';
 import { VideoRow } from '@/components/media/VideoRow';
 import { Display } from '@/components/ui/Display';
 import { PressableScale } from '@/components/ui/PressableScale';

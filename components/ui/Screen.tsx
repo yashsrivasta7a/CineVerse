@@ -2,7 +2,7 @@ import React from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
-import { HalftoneOverlay } from '@/components/kino/HalftoneOverlay';
+import { HalftoneOverlay } from '@/components/decor/HalftoneOverlay';
 import { c, grid } from '@/theme/tokens';
 
 export interface ScreenProps {

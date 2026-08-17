@@ -39,7 +39,7 @@ import { colors, radius, tabBar } from '@/theme/tokens';
  */
 const TABS = [
   { name: 'index', label: 'Home', icon: 'grid' },
-  { name: 'filmder', label: 'Flicks', icon: 'albums' },
+  { name: 'flicks', label: 'Flicks', icon: 'albums' },
   { name: 'bookmark', label: 'Vault', icon: 'star' },
 ] as const;
 
@@ -380,7 +380,7 @@ export default function Layout() {
       screenOptions={{ headerShown: false }}
     >
       <Tabs.Screen name="index" options={{ title: 'Home' }} />
-      <Tabs.Screen name="filmder" options={{ title: 'Flicks' }} />
+      <Tabs.Screen name="flicks" options={{ title: 'Flicks' }} />
       <Tabs.Screen name="bookmark" options={{ title: 'Vault' }} />
 
       <Tabs.Screen name="profile" options={{ href: null }} />

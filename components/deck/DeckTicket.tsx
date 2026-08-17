@@ -1,8 +1,8 @@
 import React from 'react';
 import { useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { TitleBanner } from '@/components/filmder/TitleBanner';
-import { DashedRule } from '@/components/kino/DashedRule';
+import { TitleBanner } from '@/components/deck/TitleBanner';
+import { DashedRule } from '@/components/decor/DashedRule';
 import { colors } from '@/theme/tokens';
 
 export interface DeckTicketProps {

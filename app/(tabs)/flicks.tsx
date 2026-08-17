@@ -1,12 +1,12 @@
-import { AboutSheet, type AboutSheetHandle } from '@/components/filmder/AboutSheet';
-import { DeckCard } from '@/components/filmder/DeckCard';
-import { DeckTicket, TICKET_MARGIN } from '@/components/filmder/DeckTicket';
+import { AboutSheet, type AboutSheetHandle } from '@/components/deck/AboutSheet';
+import { DeckCard } from '@/components/deck/DeckCard';
+import { DeckTicket, TICKET_MARGIN } from '@/components/deck/DeckTicket';
 import {
   SwipeDeck,
   type SwipeDeckHandle,
   type VerdictSource,
-} from '@/components/filmder/SwipeDeck';
-import { VerdictButtons } from '@/components/filmder/VerdictButtons';
+} from '@/components/deck/SwipeDeck';
+import { VerdictButtons } from '@/components/deck/VerdictButtons';
 import { MOOD_STOPS } from '@/lib/recommend/moods';
 import { Button } from '@/components/ui/Button';
 import { Display } from '@/components/ui/Display';

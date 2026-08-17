@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
-import { FilmStrip } from '@/components/kino/FilmStrip';
+import { FilmStrip } from '@/components/decor/FilmStrip';
 import { Display } from '@/components/ui/Display';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { Screen } from '@/components/ui/Screen';

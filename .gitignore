@@ -53,3 +53,4 @@ expo-env.d.ts
 # live in assets/fonts/; the rest is a commercial family that must not be
 # redistributed through a public repo.
 FOnt/
+fonts-licensed/

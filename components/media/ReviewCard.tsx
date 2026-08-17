@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { RatingStars } from '@/components/kino/RatingStars';
+import { RatingStars } from '@/components/decor/RatingStars';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { Text } from '@/components/ui/Text';
 import { profileUrl } from '@/lib/api/tmdb/images';

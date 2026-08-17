@@ -11,9 +11,9 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 
 import { PrefsSync } from '@/lib/api/appwrite/PrefsSync'
 import { AppwriteSessionBridge } from '@/lib/api/appwrite/SessionBridge'
-import { tokenCache } from '@/lib/auth-storage'
+import { tokenCache } from '@/lib/auth/token-cache'
 import { env } from '@/lib/env'
-import { queryClient } from '@/lib/react-query'
+import { queryClient } from '@/lib/queries/client'
 import {
   CACHE_BUSTER,
   CACHE_MAX_AGE,

@@ -416,7 +416,7 @@ export default function Selection() {
                 label="Start swiping"
                 variant="paper"
                 full={false}
-                onPress={() => router.push('/filmder')}
+                onPress={() => router.push('/flicks')}
               />
             </View>
           </>

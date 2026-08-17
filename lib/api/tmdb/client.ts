@@ -1,5 +1,5 @@
 import { env } from '@/lib/env';
-import { requestJson } from '@/lib/http';
+import { requestJson } from '@/lib/api/http';
 
 /**
  * Single entry point for every TMDB call.

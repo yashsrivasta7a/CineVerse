@@ -12,12 +12,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Barcode } from '@/components/kino/Barcode';
-import { DashedRule } from '@/components/kino/DashedRule';
-import { FrameMount } from '@/components/kino/FrameMount';
-import { RatingStars } from '@/components/kino/RatingStars';
-import { ReelScrubber } from '@/components/kino/ReelScrubber';
-import { TornSection } from '@/components/kino/TornSection';
+import { Barcode } from '@/components/decor/Barcode';
+import { DashedRule } from '@/components/decor/DashedRule';
+import { FrameMount } from '@/components/decor/FrameMount';
+import { RatingStars } from '@/components/decor/RatingStars';
+import { ReelScrubber } from '@/components/decor/ReelScrubber';
+import { TornSection } from '@/components/decor/TornSection';
 import { CastRow } from '@/components/media/CastRow';
 import { SectionHeader } from '@/components/media/SectionHeader';
 import { Display } from '@/components/ui/Display';

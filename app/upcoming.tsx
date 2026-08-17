@@ -7,9 +7,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { Display } from "@/components/ui/Display";
-import { FilmStrip } from "@/components/kino/FilmStrip";
-import { TicketCard } from "@/components/kino/TicketCard";
-import { RatingStars } from "@/components/kino/RatingStars";
+import { FilmStrip } from "@/components/decor/FilmStrip";
+import { TicketCard } from "@/components/decor/TicketCard";
+import { RatingStars } from "@/components/decor/RatingStars";
 
 import { useUpcomingMovies } from "@/lib/queries/movies";
 import { groupByMonth, shortDate } from "@/lib/format/groupByMonth";

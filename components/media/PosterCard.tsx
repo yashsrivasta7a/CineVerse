@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { Link } from 'expo-router';
 
 import { Text } from '@/components/ui/Text';
-import { RatingStars } from '@/components/kino/RatingStars';
+import { RatingStars } from '@/components/decor/RatingStars';
 import { posterUrlOrPlaceholder } from '@/lib/api/tmdb/images';
 import type { Title } from '@/lib/api/tmdb/types';
 import { colors, radius, withAlpha } from '@/theme/tokens';

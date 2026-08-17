@@ -7,8 +7,8 @@ import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { Display } from "@/components/ui/Display";
 import { SearchField } from "@/components/ui/SearchField";
-import { TicketCard } from "@/components/kino/TicketCard";
-import { Barcode } from "@/components/kino/Barcode";
+import { TicketCard } from "@/components/decor/TicketCard";
+import { Barcode } from "@/components/decor/Barcode";
 import { PosterCard } from "@/components/media/PosterCard";
 
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";

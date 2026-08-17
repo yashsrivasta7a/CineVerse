@@ -5,7 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 
-import { FilmStrip } from '@/components/kino/FilmStrip';
+import { FilmStrip } from '@/components/decor/FilmStrip';
 import { Display } from '@/components/ui/Display';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { Screen } from '@/components/ui/Screen';
