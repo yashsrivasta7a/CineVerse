@@ -70,7 +70,6 @@ export const qk = {
   countries: () => [...qk.all, 'countries'] as const,
 
   upcoming: (maxPages: number) => [...qk.all, 'upcoming', maxPages] as const,
-  trending: () => ['appwrite', 'trending'] as const,
 
   /**
    * The local table is the read path, so its key carries no user id — SQLite

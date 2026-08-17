@@ -2,64 +2,19 @@ import type { DiscoverParams } from '@/lib/api/tmdb/discover';
 import { MOOD_PROFILES, paramsFromMood } from './moods';
 
 /**
- * Named discover presets.
+ * Rail descriptors.
  *
  * Rails are DATA, not JSX — the Selection screen maps over descriptors, and the
- * generic collection screen resolves a slug back to params. Adding a rail is
- * one entry here rather than a new component and a new screen.
+ * generic collection screen resolves a slug back to params. Every rail is
+ * GENERATED from the user's own state (mood, taste vector, stated likes); the
+ * old hardcoded PRESETS list is gone because a rail identical on everyone's
+ * phone was backfill, not selection.
  */
 export interface CollectionPreset {
   slug: string;
   title: string;
   subtitle?: string;
   params: DiscoverParams;
-}
-
-const CURRENT_YEAR = new Date().getFullYear();
-
-export const PRESETS: Record<string, CollectionPreset> = {
-  popular: {
-    slug: 'popular',
-    title: 'Popular now',
-    subtitle: 'What everyone is watching',
-    params: { sort_by: 'popularity.desc' },
-  },
-  acclaimed: {
-    slug: 'acclaimed',
-    title: 'Acclaimed',
-    subtitle: 'Highly rated, widely seen',
-    params: {
-      sort_by: 'vote_average.desc',
-      'vote_average.gte': 7.5,
-      // Mandatory alongside any rating floor. Without it this fills with
-      // obscure titles holding a 10.0 off three votes.
-      'vote_count.gte': 500,
-    },
-  },
-  thisYear: {
-    slug: 'thisYear',
-    title: `Best of ${CURRENT_YEAR}`,
-    subtitle: 'The year so far',
-    params: {
-      sort_by: 'vote_average.desc',
-      primary_release_year: CURRENT_YEAR,
-      'vote_count.gte': 150,
-    },
-  },
-  shortWatch: {
-    slug: 'shortWatch',
-    title: 'Under 100 minutes',
-    subtitle: 'When time is short',
-    params: {
-      sort_by: 'popularity.desc',
-      'with_runtime.lte': 100,
-      'vote_count.gte': 200,
-    },
-  },
-};
-
-export function presetBySlug(slug: string): CollectionPreset | null {
-  return PRESETS[slug] ?? null;
 }
 
 /**
@@ -83,12 +38,24 @@ export function moodRail(moodIndex: number | null): CollectionPreset | null {
   };
 }
 
-/** A rail built from one of the user's liked genres. */
-export function genreRail(genreId: number, genreName: string): CollectionPreset {
+/**
+ * A rail built from one of the user's genres. The subtitle names the SOURCE
+ * honestly: a stated onboarding like reads "because you like", a learned one
+ * reads "you keep saying yes" — the app never claims the user said something
+ * they only swiped.
+ */
+export function genreRail(
+  genreId: number,
+  genreName: string,
+  source: 'stated' | 'learned' = 'stated'
+): CollectionPreset {
   return {
     slug: `genre-${genreId}`,
     title: genreName,
-    subtitle: `Because you like ${genreName.toLowerCase()}`,
+    subtitle:
+      source === 'learned'
+        ? `You keep saying yes to ${genreName.toLowerCase()}`
+        : `Because you like ${genreName.toLowerCase()}`,
     params: {
       sort_by: 'popularity.desc',
       with_genres: String(genreId),
@@ -106,5 +73,18 @@ export function personRail(personId: number, personName: string): CollectionPres
     // `with_cast` is far too narrow for the deck, but it is exactly right here:
     // a rail is allowed to be small.
     params: { sort_by: 'popularity.desc', with_cast: String(personId) },
+  };
+}
+
+/**
+ * The exploration lane, as a rail. Same params the deck's wildcard probe uses,
+ * so the rail and the every-4th card are honestly the same feature.
+ */
+export function wildcardRail(params: DiscoverParams): CollectionPreset {
+  return {
+    slug: 'off-usual',
+    title: 'Off your usual',
+    subtitle: 'Acclaimed picks outside your lane',
+    params,
   };
 }

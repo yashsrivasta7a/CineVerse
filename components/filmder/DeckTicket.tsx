@@ -36,11 +36,6 @@ const PAD = 7;
  */
 export const WINDOW_RADIUS = OUTER_RADIUS - PAD;
 
-/** Height of the row the tear line sits in. */
-const PERF_HEIGHT = 18;
-/** Red between the tear line and the top of the window. */
-const WINDOW_GAP = 3;
-
 /**
  * The Filmder ticket: title stub and picture window as ONE torn-off ticket
  * rather than two stacked cards.

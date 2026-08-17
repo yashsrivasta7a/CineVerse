@@ -7,6 +7,7 @@
     "icon": "./assets/images/logo.png",
     "scheme": "cineverse",
     "userInterfaceStyle": "dark",
+    "platforms": ["ios", "android"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yashsrivasta7a.cineverse",
@@ -21,10 +22,6 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.yashsrivasta7a.cineverse"
-    },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/logo.png"
     },
     "plugins": [
       "expo-router",
@@ -49,18 +46,13 @@
           ]
         }
       ],
-      "expo-image",
       [
         "expo-navigation-bar",
         {
           "hidden": true,
           "style": "light"
         }
-      ],
-      "expo-secure-store",
-      "expo-status-bar",
-      "expo-web-browser",
-      "expo-sqlite"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

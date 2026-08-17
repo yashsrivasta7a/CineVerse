@@ -26,11 +26,15 @@ export interface CastRowProps {
  * Cast, with blocking built in.
  *
  * Tap opens the person; LONG-PRESS blocks them. Blocking writes a `block`
- * stance, which `paramsFromPrefs` folds into the deck's exclusion set — so the
- * gesture has a real consequence rather than being a local hide.
+ * stance, which keeps that person from ever being used to build a "because you
+ * like X" rail, and lists them under Blocked in Profile where the block can be
+ * lifted with one tap.
  *
- * /discover has no `without_cast`, so the exclusion is applied client-side at
- * card hydration. That is a TMDB limitation, not an implementation shortcut.
+ * What it deliberately does NOT claim is that their films vanish from the deck.
+ * /discover has no `without_cast`, and list payloads carry no cast at all, so
+ * enforcing that would mean a detail fetch per candidate — hundreds of requests
+ * to answer a question the deck never asked. The dialog copy says what actually
+ * happens; it previously promised the deck exclusion, which no code performed.
  */
 export function CastRow({ cast, limit = 20 }: CastRowProps) {
   const router = useRouter();
@@ -53,7 +57,7 @@ export function CastRow({ cast, limit = 20 }: CastRowProps) {
 
     Alert.alert(
       `Block ${member.name}?`,
-      'Films featuring them stop appearing in your deck. You can undo this in Profile.',
+      'They stop being used to build your rails. Undo it any time under Blocked in Profile.',
       [
         { text: 'Cancel', style: 'cancel' },
         {

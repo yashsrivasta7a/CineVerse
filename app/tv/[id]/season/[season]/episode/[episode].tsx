@@ -30,7 +30,6 @@ import { airDate, runtimeLabel } from '@/lib/format/airDate';
 import {
   useEpisode,
   useSeason,
-  useTvDetails,
   useWatchedEpisodes,
 } from '@/lib/queries/tv';
 import { colors, grid, radius, withAlpha } from '@/theme/tokens';
@@ -161,9 +160,8 @@ export default function EpisodeScreen() {
     seasonNumber,
     episodeNumber
   );
-  // Both already cached by the screens you arrive through, so neither costs a
-  // request in the normal path — the show for its name, the season for the reel.
-  const { data: show } = useTvDetails(id);
+  // Already cached by the screens you arrive through, so it costs no request in
+  // the normal path — the season is what the reel scrubber runs on.
   const { data: seasonData } = useSeason(id, seasonNumber);
   const { isWatched, toggle } = useWatchedEpisodes(tvId);
 
@@ -206,6 +204,7 @@ export default function EpisodeScreen() {
   // writes to it. Same trade the tab bar makes.
   useEffect(() => {
     enter.value = withSpring(1, ENTER_SPRING);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const heroStyle = useAnimatedStyle(() => {
@@ -246,11 +245,10 @@ export default function EpisodeScreen() {
     router.push(`/person/${personId}` as never);
   };
 
-  const osdLeft = show?.name ? show.name.toUpperCase() : 'SERIES';
 
   if (isPending) {
     return (
-      <Screen osd={{ left: osdLeft, right: `S${pad(seasonNumber)}` }}>
+      <Screen>
         <ActivityIndicator
           size="large"
           color={colors.blood}
@@ -262,7 +260,7 @@ export default function EpisodeScreen() {
 
   if (error || !data) {
     return (
-      <Screen osd={{ left: osdLeft, right: 'NO SIGNAL' }} padded>
+      <Screen padded>
         <View style={{ flex: 1, justifyContent: 'center', gap: 16 }}>
           <Display variant="displaySm">Frame missing</Display>
           <Text variant="body" color={withAlpha(colors.paper, 0.6)}>
@@ -298,7 +296,6 @@ export default function EpisodeScreen() {
 
   return (
     <Screen
-      osd={{ left: osdLeft, right: `E${pad(episodeNumber)}`, rec: watched }}
     >
       <ScrollView
         showsVerticalScrollIndicator={false}

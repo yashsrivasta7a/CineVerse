@@ -48,3 +48,8 @@ expo-env.d.ts
 # @end expo-cli
 # Claude Code machine-local settings (contains permission grants)
 .claude/settings.local.json
+
+# Licensed Thunder source drop. Only the two TTFs the app actually ships
+# live in assets/fonts/; the rest is a commercial family that must not be
+# redistributed through a public repo.
+FOnt/

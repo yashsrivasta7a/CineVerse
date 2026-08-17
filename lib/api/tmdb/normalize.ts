@@ -27,6 +27,8 @@ export function normalizeMovie(movie: TmdbMovieListItem): Title {
     // Movie list items carry no origin_country; only /discover with
     // with_origin_country or the detail endpoint can supply it.
     originCountry: [],
+    popularity: movie.popularity ?? 0,
+    originalLanguage: movie.original_language ?? '',
   };
 }
 
@@ -43,6 +45,8 @@ export function normalizeTv(show: TmdbTvListItem): Title {
     voteCount: show.vote_count ?? 0,
     genreIds: show.genre_ids ?? [],
     originCountry: show.origin_country ?? [],
+    popularity: show.popularity ?? 0,
+    originalLanguage: show.original_language ?? '',
   };
 }
 
@@ -82,5 +86,7 @@ export function normalizeMovieDetails(details: TmdbMovieDetails): Title {
     genreIds: details.genres?.map((genre) => genre.id) ?? [],
     originCountry:
       details.production_countries?.map((country) => country.iso_3166_1) ?? [],
+    popularity: details.popularity ?? 0,
+    originalLanguage: details.original_language ?? '',
   };
 }

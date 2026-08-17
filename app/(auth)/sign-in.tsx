@@ -84,7 +84,6 @@ export default function SignInScreen() {
         <Screen
             background={colors.ink}
             edges={['top', 'bottom']}
-            osd={{ left: 'RETRO&CINEMA', right: 'PLAY&ENTER', rec: true }}
         >
             <StatusBar style="light" />
 

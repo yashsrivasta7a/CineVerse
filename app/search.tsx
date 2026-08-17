@@ -35,7 +35,7 @@ const Search = () => {
   const loading = trimmedQuery.length > 0 && (isPending || isTyping);
 
   return (
-    <Screen osd={{ left: 'SEARCH', right: 'TYPE&FIND' }} edges={['top', 'bottom']}>
+    <Screen edges={['top', 'bottom']}>
       <View style={{ paddingHorizontal: grid.screenPadding, paddingTop: 6 }}>
         <Pressable
           onPress={() => router.back()}

@@ -4,7 +4,14 @@ import * as Haptics from 'expo-haptics';
 import { Redirect, Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -245,18 +252,36 @@ function TabButton({
  * it to the height and padding it out keeps the black running all the way to
  * the physical edge with the buttons pushed clear of the indicator.
  */
+/**
+ * Whether a screen asked for the bar to be hidden.
+ *
+ * `tabBarStyle` is typed as the full animated-style union — it can legally be
+ * `false`, an array, or a Reanimated node, none of which carry a `display`
+ * property, so reading it directly does not typecheck. Screens only ever set the
+ * plain object form (`{ display: 'none' }`), so the flatten below narrows to
+ * that case and treats every other shape as "not hidden".
+ */
+function tabBarHidden(style: TabBarProps['descriptors'][string]['options']['tabBarStyle']): boolean {
+  const flat = StyleSheet.flatten(style as StyleProp<ViewStyle>);
+  return flat?.display === 'none';
+}
+
 function KinoTabBar({ state, descriptors, navigation }: TabBarProps) {
   const insets = useSafeAreaInsets();
   const currentRoute = state.routes[state.index];
   const { options } = descriptors[currentRoute.key];
-  const isHidden = options.tabBarStyle?.display === 'none';
+  const isHidden = tabBarHidden(options.tabBarStyle);
 
   const translateY = useSharedValue(0);
 
+  // `translateY` is deliberately absent: it is a SharedValue this body writes
+  // to, and listing it as a dependency is what the React Compiler's
+  // immutability rule rejects. The object identity is stable anyway.
   useEffect(() => {
     translateY.value = withTiming(isHidden ? tabBar.height + insets.bottom + 20 : 0, {
       duration: 250,
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHidden, insets.bottom]);
 
   const animatedStyle = useAnimatedStyle(() => ({

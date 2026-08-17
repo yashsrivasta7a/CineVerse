@@ -10,6 +10,7 @@ import { normalizeMovie } from '@/lib/api/tmdb/normalize';
 import { qk } from '@/lib/queries/keys';
 import type { CollectionPreset } from '@/lib/recommend/presets';
 import { colors, grid } from '@/theme/tokens';
+import { fontFamily } from '@/theme/typography';
 
 /** Enough to reach the right edge on the widest phone, and no more. */
 const SKELETON_KEYS = ['a', 'b', 'c', 'd'];
@@ -51,12 +52,16 @@ export function PosterRow({ preset, onSeeAll, cardWidth = 124 }: PosterRowProps)
         }}
       >
         <View style={{ flex: 1 }}>
-          {/* Deliberately `Text`, not `Display`. The offset shadow is the
-              heaviest device in the type system and only reads as emphasis
-              while it stays rare — the masthead and the premiere own it. On
-              five rails down a scroll it stopped being emphasis and became
-              texture. */}
-          <Text variant="displaySm" numberOfLines={1}>
+          {/* `Text`, not `Display`, and the lighter Thunder cut. `Display`
+              stamps a hard black copy behind the string, and the Black weight
+              closes up the condensed counters — six headings down a scroll,
+              both together out-shouted every caption and poster title on the
+              page. Scale alone carries the hierarchy here. */}
+          <Text
+            variant="displaySm"
+            numberOfLines={1}
+            style={{ fontFamily: fontFamily.displayAlt }}
+          >
             {preset.title}
           </Text>
           {/* Muted, not full ivory. The subtitle qualifies the heading above

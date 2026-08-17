@@ -23,6 +23,10 @@ export interface Title {
   voteCount: number;
   genreIds: number[];
   originCountry: string[];
+  /** TMDB popularity — the taste vector's reach axis reads it. */
+  popularity: number;
+  /** ISO 639-1 original language — the taste vector's language axis. */
+  originalLanguage: string;
 }
 
 export interface TmdbPage<T> {

@@ -349,7 +349,7 @@ export default function SeasonScreen() {
   };
 
   return (
-    <Screen osd={{ left: 'SERIES', right: `SEASON ${pad(seasonNumber)}` }}>
+    <Screen>
       {/* Fixed, so back is reachable without scrolling to the top of a long run. */}
       <View style={{ paddingHorizontal: grid.screenPadding, paddingTop: 6 }}>
         <PressableScale

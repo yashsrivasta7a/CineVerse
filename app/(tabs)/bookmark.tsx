@@ -119,7 +119,7 @@ const Bookmark = () => {
     };
 
     return (
-        <Screen osd={{ left: 'THE VAULT', right: 'SAVED&KEPT' }}>
+        <Screen>
             <View style={{ paddingHorizontal: grid.screenPadding, paddingTop: 6 }}>
                 <Display variant="display">My vault</Display>
                 <Text

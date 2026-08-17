@@ -33,8 +33,6 @@ export interface DeckCardProps {
 const runtimeLabel = (minutes: number | null | undefined) =>
   minutes ? `${Math.floor(minutes / 60)}h ${minutes % 60}min` : null;
 
-const BADGE = 34;
-
 /**
  * TMDB returns ISO 3166-1 alpha-2. The design shows the colloquial form, which
  * is what a viewer actually recognises. Anything not listed falls through to the
@@ -59,7 +57,18 @@ const countryLabel = (code: string | null | undefined) =>
  */
 export function DeckCard({ title, isTop = false, onPress }: DeckCardProps) {
   const { data: genres } = useGenres('movie');
-  const { data: detail } = useMovieDetails(isTop ? title.id : undefined);
+
+  /**
+   * Fetched for every mounted card, not just the top one.
+   *
+   * Gating this on `isTop` meant the request only started at the moment a card
+   * was promoted, so its runtime and country popped into the chip row a beat
+   * after the user was already looking at it. Only three cards are ever
+   * mounted, and the two behind the top are the next two the user will see, so
+   * this is at most two requests of genuine prefetch — and TanStack dedupes and
+   * caches them, so the promotion itself costs nothing.
+   */
+  const { data: detail } = useMovieDetails(title.id);
 
   const genreName = useMemo(() => {
     if (!genres?.length || !title.genreIds.length) return null;

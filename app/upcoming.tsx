@@ -91,7 +91,7 @@ const Upcoming = () => {
     );
 
     return (
-        <Screen osd={{ left: 'PREMIERES', right: 'SCROLL&SOON' }}>
+        <Screen>
             <View style={{ paddingHorizontal: grid.screenPadding, paddingTop: 6 }}>
                 <Pressable
                     onPress={() => router.back()}

@@ -2,7 +2,7 @@ import type { DiscoverParams } from '@/lib/api/tmdb/discover';
 import type { Title } from '@/lib/api/tmdb/types';
 import type { PrefEntry } from '@/lib/store/prefs';
 import { paramsFromMood } from './moods';
-import { NO_LEARNED_TASTE, type LearnedTaste } from './rank';
+import { NO_LEARNED_TASTE, type LearnedTaste } from './taste';
 
 /**
  * Preferences -> TMDB /discover parameters.

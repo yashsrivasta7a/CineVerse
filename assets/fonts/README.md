@@ -16,9 +16,12 @@ designs, plus italics — 74 files in total, far more than an app needs):
 both declare the family name `Thunder Black`. iOS will resolve a *family* name
 happily, so embedding both risks iOS picking HC while Android — which resolves
 by filename — picks LC: the same build rendering two different faces, silently.
-To try the HC design, copy it in from `FOnt/THUNDER/Fonts/OpenType-TT/` and
-remove BlackLC. Swap them; never ship both. Their vertical metrics are identical
-(cap height 70% of the em in each), so nothing reflows.
+To try the HC design, copy it in from your local Thunder licence drop and remove
+BlackLC. Swap them; never ship both. Their vertical metrics are identical (cap
+height 70% of the em in each), so nothing reflows.
+
+**Only these two cuts are committed.** Thunder is licensed commercial software —
+the full family is gitignored and must not be pushed to a public repo.
 
 **TrueType, not OpenType-PS.** The family ships both; Android is markedly more
 reliable with TTF outlines than with CFF/PostScript `.otf`, so the `.ttf`

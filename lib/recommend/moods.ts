@@ -29,7 +29,19 @@ export interface MoodProfile {
   sortBy?: DiscoverParams['sort_by'];
 }
 
-/** Indexed to match MOOD_STOPS in components/media/MoodSlider. */
+/**
+ * The dial's stops, in order. Index is the mood value stored in preferences.
+ *
+ * Lives beside the profiles rather than in the control that draws it: the two
+ * are one list read two ways, and when the labels sat in a component the
+ * profiles below could only claim to be "indexed to match" them. Now a stop
+ * without a profile is a type error.
+ */
+export const MOOD_STOPS = ['BAD', 'MEH', 'NORMAL', 'GOOD', 'GREAT'] as const;
+
+export type MoodStop = (typeof MOOD_STOPS)[number];
+
+/** One profile per entry in MOOD_STOPS, in the same order. */
 export const MOOD_PROFILES: MoodProfile[] = [
   {
     // Feeling bad -> comfort watching: light, short, reliably likeable.

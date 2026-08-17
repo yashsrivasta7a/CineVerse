@@ -67,11 +67,15 @@ const SYSTEM_CONDENSED = Platform.select({
  * family name — so shipping both risks iOS picking the HC cut while Android,
  * which resolves by filename, picks LC. Same app, two different faces, silently.
  *
- * To try the HC design instead: copy Thunder-BlackHC.ttf from
- * FOnt/THUNDER/Fonts/OpenType-TT/ into assets/fonts/, remove BlackLC, and
- * update this name plus app.json and the useFonts map. Swap them — never embed
- * both. Their vertical metrics are identical (cap height 70% of em in each), so
- * nothing reflows.
+ * To try the HC design instead: copy Thunder-BlackHC.ttf out of your local
+ * Thunder licence drop into assets/fonts/, remove BlackLC, and update this name
+ * plus app.json and the useFonts map. Swap them — never embed both. Their
+ * vertical metrics are identical (cap height 70% of em in each), so nothing
+ * reflows.
+ *
+ * The full family is deliberately NOT in this repo. It is licensed commercial
+ * software; only the two cuts the app actually ships are committed, and the
+ * source drop is gitignored.
  */
 export const fontFamily = {
   display: FONTS.thunder ? 'Thunder-BlackLC' : SYSTEM_CONDENSED,

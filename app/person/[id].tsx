@@ -70,7 +70,7 @@ export default function PersonScreen() {
     }
     Alert.alert(
       `Block ${person.name}?`,
-      'Films featuring them stop appearing in your deck. You can undo this any time.',
+      'They stop being used to build your rails. Undo it any time under Blocked in Profile.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -84,7 +84,7 @@ export default function PersonScreen() {
   };
 
   return (
-    <Screen osd={{ left: 'CAST', right: 'PROFILE' }}>
+    <Screen>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 60 }}

@@ -3,7 +3,6 @@ import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
 import { HalftoneOverlay } from '@/components/kino/HalftoneOverlay';
-import { OsdCorner } from '@/components/kino/OsdCorner';
 import { c, grid } from '@/theme/tokens';
 
 export interface ScreenProps {
@@ -16,38 +15,29 @@ export interface ScreenProps {
    * built on. Opt in per surface if a paper texture is actually wanted.
    */
   texture?: boolean;
-  /** VCR chrome across the top. */
-  osd?: { left?: string; right?: string; rec?: boolean };
   padded?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
 /**
- * Screen chrome: ground colour, safe areas, and the optional OSD strip.
- * Replaces the per-screen AuroraBackground, which ran a WebGL render loop on
- * five screens and never paused when they lost focus.
+ * Screen chrome: ground colour and safe areas.
+ *
+ * The VCR-style OSD strip that used to run across the top of thirteen screens
+ * is gone. It printed things like "THE VAULT / SAVED&KEPT" above the actual
+ * heading, which said the same thing twice in a smaller, dimmer face — costume
+ * sitting in the one place a screen most needs to be legible.
  */
 export function Screen({
   children,
   background = c.bg,
   edges = ['top'],
   texture = false,
-  osd,
   padded = false,
   style,
 }: ScreenProps) {
   return (
     <View style={[{ flex: 1, backgroundColor: background }, style]}>
       <SafeAreaView style={{ flex: 1 }} edges={edges}>
-        {osd ? (
-          <OsdCorner
-            left={osd.left}
-            right={osd.right}
-            rec={osd.rec}
-            style={{ paddingHorizontal: grid.screenPadding, paddingTop: 10 }}
-          />
-        ) : null}
-
         <View
           style={{
             flex: 1,

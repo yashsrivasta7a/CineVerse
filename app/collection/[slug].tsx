@@ -15,7 +15,10 @@ import { normalizeMovie } from '@/lib/api/tmdb/normalize';
 import { useGridWidth } from '@/lib/hooks/useGridWidth';
 import { qk } from '@/lib/queries/keys';
 import { applyTaste, tasteFromPrefs } from '@/lib/recommend/params';
-import { genreRail, moodRail, personRail, presetBySlug } from '@/lib/recommend/presets';
+import { buildVector } from '@/lib/recommend/taste';
+import { wildcardParams } from '@/lib/recommend/pool';
+import { getTasteSignals } from '@/db/queries/verdicts';
+import { genreRail, moodRail, personRail, wildcardRail } from '@/lib/recommend/presets';
 import { paramsFromFilters, useFilters } from '@/lib/store/filters';
 import { selectByFacet, usePrefs } from '@/lib/store/prefs';
 import { colors, grid, radius, withAlpha } from '@/theme/tokens';
@@ -54,8 +57,11 @@ export default function CollectionScreen() {
     }
 
     const resolved = (() => {
-      const named = presetBySlug(slug ?? '');
-      if (named) return named;
+      // Rebuilt from the same vector the deck reads, so "see all" on the
+      // exploration rail shows the grid the rail was actually cut from.
+      if (slug === 'off-usual') {
+        return wildcardRail(wildcardParams(buildVector(getTasteSignals('movie'))));
+      }
 
       const moodMatch = /^mood-(\d+)$/.exec(slug ?? '');
       if (moodMatch) return moodRail(Number(moodMatch[1]));
@@ -111,7 +117,7 @@ export default function CollectionScreen() {
   }, [query.data]);
 
   return (
-    <Screen osd={{ left: 'COLLECTION', right: 'SCROLL&PICK' }}>
+    <Screen>
       <View style={{ paddingHorizontal: grid.screenPadding, paddingTop: 6, gap: 10 }}>
         <PressableScale
           onPress={() => router.back()}

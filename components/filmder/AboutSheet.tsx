@@ -52,11 +52,10 @@ const TEAR_TEETH = 13;
 const SHEET_RATIO = 0.78;
 const COLLAPSED_LINES = 6;
 
-const RULE = withAlpha(colors.paper, 0.55);
 const BODY = withAlpha(colors.paper, 0.93);
 
 export const AboutSheet = forwardRef<AboutSheetHandle, AboutSheetProps>(
-  ({ movieId, visibleHeight }, ref) => {
+  function AboutSheet({ movieId, visibleHeight }, ref) {
     const router = useRouter();
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
@@ -103,8 +102,6 @@ export const AboutSheet = forwardRef<AboutSheetHandle, AboutSheetProps>(
         ],
       };
     });
-
-    const isClosed = useDerivedValue(() => openness.value === 0 && drag.value === 0);
 
     const backdropPointerEvents = useDerivedValue(() => {
       return openness.value > 0.1 || drag.value < -10 ? 'auto' : 'none';

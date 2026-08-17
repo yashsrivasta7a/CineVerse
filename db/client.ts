@@ -91,6 +91,10 @@ const ADDITIVE_COLUMNS: readonly (readonly [string, string, string])[] = [
   ['bookmarks', 'source', "TEXT NOT NULL DEFAULT 'manual'"],
   ['verdicts', 'seen', 'INTEGER NOT NULL DEFAULT 0'],
   ['verdicts', 'genre_ids', 'TEXT'],
+  ['verdicts', 'release_date', 'TEXT'],
+  ['verdicts', 'original_language', 'TEXT'],
+  ['verdicts', 'popularity', 'REAL'],
+  ['verdicts', 'vote_average', 'REAL'],
 ] as const;
 
 /**
@@ -139,6 +143,16 @@ const MIGRATIONS: readonly (() => void)[] = [
   () => {
     applyAdditiveColumns();
     db.execSync(INDEXES);
+  },
+
+  // v4 — taste-vector snapshot on each verdict.
+  //
+  // Same reasoning as genre_ids: the vector's era/language/reach/acclaim axes
+  // need these values for judged titles, the card in hand already has them, and
+  // the alternative is a detail fetch per judged id. NULL on old rows is fine —
+  // the vector builder skips missing axes per signal.
+  () => {
+    applyAdditiveColumns();
   },
 ];
 

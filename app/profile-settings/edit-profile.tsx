@@ -75,7 +75,7 @@ export default function EditProfile() {
     }
 
     return (
-        <Screen osd={{ left: 'MEMBER', right: 'EDIT&SAVE' }}>
+        <Screen>
             <Stack.Screen options={{ headerShown: false }} />
 
             <View style={{ paddingHorizontal: grid.screenPadding, paddingTop: 6, gap: 22 }}>

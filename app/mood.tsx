@@ -1,53 +1,86 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useDerivedValue,
+  useReducedMotion,
+  withSpring,
+  type SharedValue,
+} from 'react-native-reanimated';
 
-import { MOOD_STOPS, MoodSlider } from '@/components/media/MoodSlider';
-import { Display } from '@/components/ui/Display';
+import { MoodDial } from '@/components/media/MoodDial';
+import { MOOD_PROFILES, MOOD_STOPS } from '@/lib/recommend/moods';
+import { SplitFlap } from '@/components/media/SplitFlap';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { Screen } from '@/components/ui/Screen';
 import { Text } from '@/components/ui/Text';
 import { usePrefs } from '@/lib/store/prefs';
-import { colors, grid, radius, withAlpha } from '@/theme/tokens';
+import { colors, grid, radius } from '@/theme/tokens';
 
-const MEME_PREVIEWS: Record<number, string[]> = {
-  0: [ // BAD (Anger, despair, chaos)
-    'https://i.imgflip.com/39t1vc.jpg', // Joker hit by car (Joker)
-    'https://i.imgflip.com/2req.jpg',   // One does not simply (Lord of the Rings)
-    'https://i.imgflip.com/1bg.jpg',    // That escalated quickly (Anchorman)
-    'https://i.imgflip.com/1ur9b0.jpg', // Mocking (Spongebob Movie)
-  ],
-  1: [ // MEH (Confused, condescending, apathy)
-    'https://i.imgflip.com/1o12mo.jpg', // Confused Travolta (Pulp Fiction)
-    'https://i.imgflip.com/1bid.jpg',   // Condescending Wonka (Willy Wonka)
-    'https://i.imgflip.com/196g.jpg',   // See, nobody cares (Jurassic Park)
-    'https://i.imgflip.com/34289a.jpg', // Anakin and Padme (Star Wars)
-  ],
-  2: [ // NORMAL (Realization, neutral, chill)
-    'https://i.imgflip.com/1bhm.jpg',   // Morpheus (The Matrix)
-    'https://i.imgflip.com/14v4st.jpg', // I am the captain now (Captain Phillips)
-    'https://i.imgflip.com/2od.jpg',    // Picard Facepalm (Star Trek Generations)
-    'https://i.imgflip.com/26am.jpg',   // Aliens guy (History, but cinematic)
-  ],
-  3: [ // GOOD (Approval, happy)
-    'https://i.imgflip.com/4t0m5.jpg',  // Gatsby Toast (The Great Gatsby)
-    'https://i.imgflip.com/2fmt.jpg',   // Leo Laughing (Django Unchained)
-    'https://i.imgflip.com/1o12mo.jpg', // Confused Travolta (Pulp Fiction)
-    'https://i.imgflip.com/196g.jpg',   // Jurassic Park
-  ],
-  4: [ // GREAT (Ecstatic, mind blown)
-    'https://i.imgflip.com/24y43o.jpg', // Mind blown (Tim & Eric)
-    'https://i.imgflip.com/4t0m5.jpg',  // Gatsby Toast (The Great Gatsby)
-    'https://i.imgflip.com/2fmt.jpg',   // Django Leo (Django Unchained)
-    'https://i.imgflip.com/1bhm.jpg',   // Matrix Morpheus
-  ]
-};
+/** Underdamped, so the marquee lamps settle with a flicker rather than a step. */
+const SPRING = { damping: 15, stiffness: 140, mass: 0.8 } as const;
+
+/** Bulbs along the top and bottom rails of the marquee. */
+const BULBS = 11;
+
+/**
+ * One rail of marquee bulbs, brightening with the mood.
+ *
+ * Every bulb reads the same shared value but crosses its own threshold, so the
+ * rail lights up progressively from the centre out instead of switching as a
+ * block — the difference between a sign warming up and a sign being toggled.
+ */
+function BulbRail({ energy }: { energy: SharedValue<number> }) {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: 6,
+      }}
+    >
+      {Array.from({ length: BULBS }).map((_, index) => (
+        <Bulb key={index} index={index} energy={energy} />
+      ))}
+    </View>
+  );
+}
+
+function Bulb({ index, energy }: { index: number; energy: SharedValue<number> }) {
+  // Distance from the centre, 0 at the middle bulb and 1 at either end.
+  const offset = Math.abs(index - (BULBS - 1) / 2) / ((BULBS - 1) / 2);
+
+  const style = useAnimatedStyle(() => {
+    const lit = Math.max(0, Math.min(1, (energy.value - offset * 0.55) / 0.45));
+    return {
+      opacity: 0.22 + lit * 0.78,
+      transform: [{ scale: 0.72 + lit * 0.28 }],
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width: 9,
+          height: 9,
+          borderRadius: 4.5,
+          backgroundColor: colors.paper,
+          borderWidth: 1,
+          borderColor: colors.noir,
+        },
+        style,
+      ]}
+    />
+  );
+}
 
 const BackgroundPattern = () => {
-  const line = 'WHAT IS YOUR MOOD NOW? '.repeat(6);
+  const line = 'NOW SHOWING · NOW SHOWING · '.repeat(4);
   return (
     <View
       style={[
@@ -77,177 +110,162 @@ const BackgroundPattern = () => {
   );
 };
 
-const MoodCollage = ({ posters }: { posters: string[] }) => {
-  if (!posters?.length) return <View style={{ flex: 1 }} />;
-
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      {posters.slice(0, 4).map((path, i) => {
-        const isMain = i === 0;
-        const rotate = isMain ? '0deg' : i % 2 === 0 ? '14deg' : '-10deg';
-        const xOffset = isMain ? 0 : i === 1 ? -70 : i === 2 ? 70 : -30;
-        const yOffset = isMain ? 0 : i === 1 ? -90 : i === 2 ? 40 : 110;
-        const size = isMain ? 170 : 110;
-        const zIndex = isMain ? 10 : 5 - i;
-
-        return (
-          <Animated.View
-            key={`${path}-${i}`}
-            entering={FadeIn.delay(i * 100).duration(400)}
-            style={{
-              position: isMain ? 'relative' : 'absolute',
-              width: size,
-              height: size * 1.3,
-              transform: [{ translateX: xOffset }, { translateY: yOffset }, { rotate }],
-              zIndex,
-              backgroundColor: colors.paper,
-              padding: 8,
-              paddingBottom: 28,
-              shadowColor: colors.noir,
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.6,
-              shadowRadius: 14,
-              elevation: 10,
-            }}
-          >
-            <Image
-              source={{ uri: path }}
-              style={{ flex: 1, backgroundColor: colors.ink }}
-              contentFit="cover"
-              transition={200}
-            />
-            {/* Masking tape for scattered photos */}
-            {!isMain && (
-              <View
-                style={{
-                  position: 'absolute',
-                  top: -12,
-                  left: '25%',
-                  width: 50,
-                  height: 18,
-                  backgroundColor: '#E5D5A5',
-                  opacity: 0.95,
-                  transform: [{ rotate: '-8deg' }],
-                  shadowColor: colors.noir,
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 2,
-                }}
-              />
-            )}
-            {/* Red pushpin for the main photo */}
-            {isMain && (
-              <View
-                style={{
-                  position: 'absolute',
-                  top: -8,
-                  left: '48%',
-                  width: 14,
-                  height: 14,
-                  borderRadius: 7,
-                  backgroundColor: colors.blood,
-                  shadowColor: colors.noir,
-                  shadowOffset: { width: 1, height: 3 },
-                  shadowOpacity: 0.8,
-                  shadowRadius: 3,
-                  borderWidth: 1,
-                  borderColor: withAlpha(colors.paper, 0.5),
-                }}
-              />
-            )}
-          </Animated.View>
-        );
-      })}
-    </View>
-  );
-};
-
+/**
+ * The mood, as the marquee of a picture house.
+ *
+ * This replaced a grid of hot-linked imgflip meme JPEGs. They were third-party
+ * URLs on someone else's CDN, they had nothing to do with the films the mood
+ * actually selects, and the screen could not render at all offline. A marquee
+ * needs no network, states the value it is reporting, and is an object this
+ * app's own subject already owns.
+ */
 export default function MoodScreen() {
   const router = useRouter();
+  const reducedMotion = useReducedMotion();
 
   const storedMood = usePrefs((state) => state.mood);
   const setMood = usePrefs((state) => state.setMood);
 
   const [draft, setDraft] = useState<number>(storedMood ?? 2);
 
+  /**
+   * The screen's animation, in one number: 0 at the bottom stop, 1 at the top.
+   * `useDerivedValue` rather than an effect for the reason the tab bar and the
+   * poster skeleton use it — writing a shared value from an effect puts it in a
+   * dependency array, which the React Compiler's immutability rule rejects.
+   */
+  const energy = useDerivedValue(() => {
+    const target = draft / (MOOD_STOPS.length - 1);
+    return reducedMotion ? target : withSpring(target, SPRING);
+  });
+
+  const boardStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(energy.value, [0, 1], [0.97, 1.03]) }],
+  }));
+
+  const profile = MOOD_PROFILES[draft];
+
   const apply = () => {
+    // The one commit on this screen earns the heaviest of the three families.
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     setMood(draft);
     router.back();
   };
 
   return (
-    <Screen background={colors.ink} edges={['top', 'bottom']}>
+    // Top edge only. The knob is meant to be cut off by the physical bottom of
+    // the screen, and a bottom safe-area inset would float it above one.
+    <Screen background={colors.ink} edges={['top']}>
       <BackgroundPattern />
 
-      {/* Header */}
-      <View style={{ paddingHorizontal: grid.screenPadding, paddingTop: 10, gap: 14, zIndex: 20 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <PressableScale
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
+      <View
+        style={{
+          paddingHorizontal: grid.screenPadding,
+          paddingTop: 10,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          zIndex: 20,
+        }}
+      >
+        <PressableScale
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: radius.md,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.paper,
+          }}
+        >
+          <Ionicons name="arrow-back" size={22} color={colors.ink} />
+        </PressableScale>
+
+        <Text variant="label" color={colors.paperMuted}>
+          Now showing
+        </Text>
+
+        {/* Balances the back key so the caption sits centred. */}
+        <View style={{ width: 44 }} />
+      </View>
+
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'space-evenly',
+          paddingVertical: 8,
+          zIndex: 10,
+        }}
+      >
+        {/* The marquee */}
+        <Animated.View style={boardStyle}>
+          <View
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: radius.md,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: colors.paper,
+              backgroundColor: colors.blood,
+              borderRadius: radius.lg,
+              borderWidth: 3,
+              borderColor: colors.noir,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              gap: 10,
             }}
           >
-            <Ionicons name="arrow-back" size={22} color={colors.ink} />
-          </PressableScale>
-
-          <Text variant="label" color={colors.paper} style={{ fontSize: 16 }}>
-            What is your mood now?
-          </Text>
-
-          <View style={{ width: 44 }} /> {/* Spacer for centering */}
-        </View>
-      </View>
-
-      {/* Dynamic Collage */}
-      <View style={{ flex: 1, marginVertical: 20 }}>
-        <MoodCollage posters={MEME_PREVIEWS[draft] ?? []} />
-      </View>
-
-      {/* Controls */}
-      <View style={{ paddingHorizontal: grid.screenPadding, paddingBottom: 24, gap: 24, zIndex: 20 }}>
-        <Animated.View entering={FadeIn.duration(200)}>
-          <Display variant="displayXl" color={colors.paper} align="center" textStyle={{ fontSize: 52 }}>
-            {MOOD_STOPS[draft]}
-          </Display>
+            <BulbRail energy={energy} />
+            <SplitFlap text={MOOD_STOPS[draft]} size={38} />
+            <BulbRail energy={energy} />
+          </View>
         </Animated.View>
 
-        <MoodSlider
-          value={draft}
-          onChange={setDraft}
-          showLabel={false}
-          trackColor={colors.blood}
-        />
+        {/* The real promise of the stop, read from the same profile that builds
+            the query — so the line cannot drift from what the dial does. */}
+        <View style={{ paddingHorizontal: grid.screenPadding, gap: 4 }}>
+          <Text variant="displaySm" color={colors.paper} style={{ textAlign: 'center' }}>
+            {profile?.railTitle ?? ''}
+          </Text>
+          <Text variant="body" color={colors.paperMuted} style={{ textAlign: 'center' }}>
+            {profile?.railSubtitle ?? ''}
+          </Text>
+        </View>
+
+      </View>
+
+      <View
+        style={{
+          paddingHorizontal: grid.screenPadding,
+          paddingBottom: 16,
+          alignItems: 'center',
+          zIndex: 20,
+        }}
+      >
 
         <PressableScale
           onPress={apply}
           scaleTo={0.975}
           accessibilityRole="button"
-          accessibilityLabel={`Look for something ${MOOD_STOPS[draft].toLowerCase()}`}
+          accessibilityLabel={`Find something ${MOOD_STOPS[draft].toLowerCase()}`}
           style={{
-            backgroundColor: colors.blood,
+            alignSelf: 'stretch',
+            backgroundColor: colors.paper,
             borderRadius: radius.md,
-            paddingVertical: 20,
+            borderWidth: 2,
+            borderColor: colors.noir,
+            paddingVertical: 18,
             alignItems: 'center',
-            shadowColor: colors.blood,
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.6,
-            shadowRadius: 10,
-            elevation: 8,
           }}
         >
-          <Text variant="label" color={colors.paper} style={{ fontSize: 18, letterSpacing: 2 }}>
-            LOOK
+          <Text variant="label" color={colors.ink} style={{ fontSize: 15, letterSpacing: 2 }}>
+            Find something {MOOD_STOPS[draft].toLowerCase()}
           </Text>
         </PressableScale>
       </View>
+
+      {/* The knob, sunk into the bottom edge. Full-bleed and last in the tree so
+          it clips against the screen edge rather than against a padded box. */}
+      <MoodDial value={draft} onChange={setDraft} stops={MOOD_STOPS} />
     </Screen>
   );
 }

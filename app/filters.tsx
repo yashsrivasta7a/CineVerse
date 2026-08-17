@@ -83,7 +83,7 @@ export default function FiltersScreen() {
   const active = filtersAreActive(filters);
 
   return (
-    <Screen background={colors.ink} edges={['top', 'bottom']} osd={{ left: 'FILTERS', right: 'NARROW&FIND' }}>
+    <Screen background={colors.ink} edges={['top', 'bottom']}>
       <View
         style={{
           paddingHorizontal: grid.screenPadding,

@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { forwardRef, useCallback, useImperativeHandle } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useLayoutEffect } from 'react';
 import { useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -83,6 +83,15 @@ const FLING_MS = 220;
 /** Cards kept mounted. Two behind the top one is all that is ever visible. */
 const VISIBLE = 3;
 
+/**
+ * Resting transform of each slot behind the top one. Named because the slot
+ * above's rest is the slot below's animation target — see `secondStyle`.
+ */
+const SECOND_SCALE = 0.94;
+const SECOND_LIFT = 14;
+const THIRD_SCALE = 0.88;
+const THIRD_LIFT = 28;
+
 /** Axis-lock states. Plain ints, so they cross to the UI runtime for free. */
 const AXIS_NONE = 0;
 const AXIS_SWIPE = 1;
@@ -142,10 +151,15 @@ function runFling(
   ty.value = withTiming(ty.value + 40, { duration: FLING_MS });
   tx.value = withTiming(sign * width * 1.5, { duration: FLING_MS }, (finished) => {
     if (!finished) return;
-    // Recentre before the verdict lands: the flung card is about to unmount and
-    // the one behind takes this exact position, so it has to start at rest.
-    tx.value = 0;
-    ty.value = 0;
+    // Deliberately does NOT recentre here.
+    //
+    // These shared values belong to the TOP SLOT, not to a card, and the slot
+    // still holds the flung card until React has re-rendered. Zeroing them on
+    // this callback dropped that card back into the middle of the screen for
+    // every frame between the animation ending and the re-render committing —
+    // which reads as the same film being dealt twice. The recentre now happens
+    // in a layout effect keyed on the new top card's id, i.e. after the swap
+    // and before the next paint.
     runOnJS(onDone)(direction, source);
   });
 }
@@ -279,6 +293,21 @@ export const SwipeDeck = forwardRef<SwipeDeckHandle, SwipeDeckProps>(
     const axis = useSharedValue(AXIS_NONE);
 
     const top = cards[0];
+
+    /**
+     * Recentres the top slot whenever a different card moves into it.
+     *
+     * `useLayoutEffect`, not `useEffect`: it runs after the swap is committed
+     * but BEFORE the frame is painted, so the incoming card is never drawn at
+     * the outgoing card's off-screen offset. Doing this here rather than in the
+     * fling callback is what stops the flung card being briefly redrawn at
+     * centre — see the note in `runFling`.
+     */
+    useLayoutEffect(() => {
+      tx.value = 0;
+      ty.value = 0;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [top?.id]);
 
     const commit = useCallback(
       (direction: SwipeDirection, source: VerdictSource) => {
@@ -425,78 +454,98 @@ export const SwipeDeck = forwardRef<SwipeDeckHandle, SwipeDeckProps>(
       interpolate(Math.abs(tx.value), [0, width * 0.5], [0, 1], Extrapolation.CLAMP)
     );
 
+    /**
+     * The stack is a conveyor: at full progress each card must be sitting on
+     * exactly the resting transform of the slot ABOVE it.
+     *
+     * That end-point is load-bearing, not styling. The second card used to stop
+     * at scale 0.98 / translateY 7 and then become the top card, whose resting
+     * transform is scale 1 / translateY 0 — so every swipe ended with the
+     * incoming card jumping the last 2% in a single frame. Landing it on 1 and 0
+     * means the promotion changes which style object drives the card without
+     * changing a single number, and the swap is invisible.
+     */
     const secondStyle = useAnimatedStyle(() => ({
       transform: [
-        { scale: interpolate(progress.value, [0, 1], [0.94, 0.98]) },
-        { translateY: interpolate(progress.value, [0, 1], [14, 7]) },
+        { scale: interpolate(progress.value, [0, 1], [SECOND_SCALE, 1]) },
+        { translateY: interpolate(progress.value, [0, 1], [SECOND_LIFT, 0]) },
       ],
     }));
 
     const thirdStyle = useAnimatedStyle(() => ({
       transform: [
-        { scale: interpolate(progress.value, [0, 1], [0.88, 0.94]) },
-        { translateY: interpolate(progress.value, [0, 1], [28, 14]) },
+        { scale: interpolate(progress.value, [0, 1], [THIRD_SCALE, SECOND_SCALE]) },
+        { translateY: interpolate(progress.value, [0, 1], [THIRD_LIFT, SECOND_LIFT]) },
       ],
     }));
 
     const stack = cards.slice(0, VISIBLE);
 
+    /**
+     * ONE detector, on a stable container — never one per card.
+     *
+     * Wrapping only the top card put every card through a changing element type
+     * as it advanced: `<GestureDetector><Animated.View>` while on top, a bare
+     * `<Animated.View>` behind. React cannot reconcile across a changed type, so
+     * the card directly under the one being swiped was unmounted and rebuilt the
+     * instant it was promoted — which showed as its poster blanking and fading
+     * back in on every single swipe. Same key, same props, remounted anyway.
+     *
+     * The container covers exactly the area the cards do, so the pan still
+     * begins anywhere on the deck, and the shared values it drives still only
+     * transform the top card.
+     */
     return (
-      <View style={{ flex: 1 }}>
-        {stack
-          .map((card, index) => {
-            const isTop = index === 0;
-            const style = index === 0 ? topStyle : index === 1 ? secondStyle : thirdStyle;
+      <GestureDetector gesture={pan}>
+        <View style={{ flex: 1 }}>
+          {stack
+            .map((card, index) => {
+              const isTop = index === 0;
+              const style =
+                index === 0 ? topStyle : index === 1 ? secondStyle : thirdStyle;
 
-            const content = (
-              <Animated.View
-                key={card.id}
-                // Only the top card carries the action menu. The two behind it
-                // are decoration, and offering verdicts on a card the user
-                // cannot see would let them judge the wrong film.
-                accessible={isTop}
-                // No explicit label: grouping lets the platform build the
-                // announcement from the card's own text — title, year, rating —
-                // which is strictly more than a title alone would say.
-                accessibilityActions={isTop ? [...A11Y_ACTIONS] : undefined}
-                onAccessibilityAction={
-                  isTop ? handleAccessibilityAction : undefined
-                }
-                style={[
-                  {
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    zIndex: VISIBLE - index,
-                  },
-                  style,
-                ]}
-              >
-                {renderCard(card, isTop)}
+              return (
+                <Animated.View
+                  key={card.id}
+                  // Only the top card carries the action menu. The two behind
+                  // it are decoration, and offering verdicts on a card the user
+                  // cannot see would let them judge the wrong film.
+                  accessible={isTop}
+                  // No explicit label: grouping lets the platform build the
+                  // announcement from the card's own text — title, year,
+                  // rating — which is strictly more than a title alone.
+                  accessibilityActions={isTop ? [...A11Y_ACTIONS] : undefined}
+                  onAccessibilityAction={
+                    isTop ? handleAccessibilityAction : undefined
+                  }
+                  style={[
+                    {
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      zIndex: VISIBLE - index,
+                    },
+                    style,
+                  ]}
+                >
+                  {renderCard(card, isTop)}
 
-                {isTop ? (
-                  <>
-                    <Stamp label={STAMP_RIGHT} style={likeStyle} />
-                    <Stamp label={STAMP_LEFT} style={nopeStyle} />
-                  </>
-                ) : null}
-              </Animated.View>
-            );
-
-            return isTop ? (
-              <GestureDetector gesture={pan} key={card.id}>
-                {content}
-              </GestureDetector>
-            ) : (
-              content
-            );
-          })
-          // Painter's order: the top card renders last so it sits above the
-          // stack on Android, where zIndex alone is unreliable.
-          .reverse()}
-      </View>
+                  {isTop ? (
+                    <>
+                      <Stamp label={STAMP_RIGHT} style={likeStyle} />
+                      <Stamp label={STAMP_LEFT} style={nopeStyle} />
+                    </>
+                  ) : null}
+                </Animated.View>
+              );
+            })
+            // Painter's order: the top card renders last so it sits above the
+            // stack on Android, where zIndex alone is unreliable.
+            .reverse()}
+        </View>
+      </GestureDetector>
     );
   }
 );

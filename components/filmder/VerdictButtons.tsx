@@ -6,41 +6,54 @@ import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { colors } from '@/theme/tokens';
 
+/**
+ * Which question the keys are asking about the card in front of the user.
+ *
+ * `intent` is the default and covers the overwhelming majority of cards — a
+ * discovery deck is mostly films the user has not seen, so the big keys mirror
+ * the swipe: pass it, or file it in the vault. `taste` is what the "Seen it
+ * already?" pill switches to, for one card at a time: now a thumb is honest,
+ * because you can only rate a film you have watched.
+ */
+export type VerdictMode = 'intent' | 'taste';
+
 export interface VerdictButtonsProps {
   onDown?: () => void;
   onUp?: () => void;
+  mode?: VerdictMode;
   size?: number;
   style?: StyleProp<ViewStyle>;
 }
 
 /**
- * The deck's two keys: the verdicts for a film the user has already watched.
- *
- * The deck's four outcomes split cleanly by input. A drag is about a film the
- * user has *not* seen — pass it, or file it in the vault for later. These keys
- * are about one they *have* — it landed, or it did not. Two gesture families,
- * two axes, no mode to switch between them.
- *
- * That split is why thumbs are right here and would have been wrong on the
- * swipe. A thumb rates something; you cannot rate a film you have not watched.
- * The swipe's own stamps say "Pass" and "Vault" for exactly that reason.
- *
- * These keys are NOT the accessible route for the whole deck any more — they
- * only reach half of it. The two swipe verdicts are exposed to screen readers
- * through `accessibilityActions` on the card itself, in `SwipeDeck`.
- *
- * Built on `PressableScale`, NOT on a bare `Pressable` with a
- * `style={({ pressed }) => …}` callback. NativeWind wraps `Pressable` through
- * its `cssInterop` layer, and that wrapper does not reliably invoke a function
- * style — the returned object is dropped, taking `backgroundColor` with it. The
- * symptom is precise and misleading: sizing and layout survive (they come from
- * the flattened array), the fills do not, so the pair renders as two bare icons
- * floating on the page with no key behind them.
+ * Glyph and label per mode. The intent icons are deliberately NOT thumbs — a
+ * thumb is a rating, and the user has not seen the film yet; the honest verbs
+ * are "skip it" and "save it". The thumbs live behind the seen pill.
  */
+const FACES: Record<
+  VerdictMode,
+  {
+    down: { icon: keyof typeof Ionicons.glyphMap; label: string };
+    up: { icon: keyof typeof Ionicons.glyphMap; label: string };
+  }
+> = {
+  intent: {
+    down: { icon: 'close', label: 'Pass' },
+    up: { icon: 'bookmark', label: 'Add to my vault' },
+  },
+  taste: {
+    down: { icon: 'thumbs-down', label: 'Watched it, did not like it' },
+    up: { icon: 'thumbs-up', label: 'Watched it, liked it' },
+  },
+};
+
 /**
  * Proportions, all as a fraction of the button's side so the pair scales as one
- * object. Measured off the reference rather than picked: the corner is a
- * squircle at just over a quarter of the side, and the glyph fills half of it.
+ * object: squircle corner at just over a quarter of the side, glyph at half.
+ *
+ * Built on `PressableScale`, NOT a bare `Pressable` with a function style —
+ * NativeWind's cssInterop wrapper drops function-style results, which renders
+ * the pair as two bare icons with no key behind them.
  */
 const CORNER = 0.34;
 const GLYPH = 0.5;
@@ -49,9 +62,12 @@ const GAP = 0.1;
 export function VerdictButtons({
   onDown,
   onUp,
+  mode = 'intent',
   size = 76,
   style,
 }: VerdictButtonsProps) {
+  const face = FACES[mode];
+
   const press = (handler?: () => void, heavy = false) => () => {
     Haptics.impactAsync(
       heavy ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
@@ -80,7 +96,7 @@ export function VerdictButtons({
         onPress={press(onDown)}
         scaleTo={0.93}
         accessibilityRole="button"
-        accessibilityLabel="Watched it, did not like it"
+        accessibilityLabel={face.down.label}
         style={{
           ...base,
           backgroundColor: colors.blood,
@@ -90,17 +106,17 @@ export function VerdictButtons({
       >
         {/* Cream on red, mirroring the red-on-cream of its partner — the two
             keys are the same key inverted, which is what makes them a pair. */}
-        <Ionicons name="thumbs-down" size={size * GLYPH} color={colors.inkDeep} />
+        <Ionicons name={face.down.icon} size={size * GLYPH} color={colors.inkDeep} />
       </PressableScale>
 
       <PressableScale
         onPress={press(onUp, true)}
         scaleTo={0.93}
         accessibilityRole="button"
-        accessibilityLabel="Watched it, liked it"
+        accessibilityLabel={face.up.label}
         style={{ ...base, backgroundColor: colors.paper }}
       >
-        <Ionicons name="thumbs-up" size={size * GLYPH} color={colors.blood} />
+        <Ionicons name={face.up.icon} size={size * GLYPH} color={colors.blood} />
       </PressableScale>
     </View>
   );

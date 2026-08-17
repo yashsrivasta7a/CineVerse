@@ -38,6 +38,30 @@ import {
 
 let established = false;
 
+/**
+ * Set once the backend has told us it cannot serve this app at all — the
+ * project is paused, suspended, or the function is missing.
+ *
+ * `ensureAppwriteSession` is called on every sign-in check and on every focus,
+ * so without this a paused Appwrite project printed the same warning on a loop
+ * for the whole session. The condition is not transient and no amount of
+ * retrying fixes it, so it is reported exactly once and then the bridge stays
+ * quiet: the app is designed to run unauthenticated off local SQLite, and a
+ * console full of a failure the user cannot act on hides the ones they can.
+ */
+let unavailable = false;
+
+/** Backend states that will not resolve by trying again this run. */
+function isPermanentlyUnavailable(error: unknown): boolean {
+  const code = (error as { code?: number })?.code;
+  const message = String((error as { message?: string })?.message ?? error);
+  return (
+    code === 404 ||
+    code === 503 ||
+    /paused|inactivity|suspend|not found|could not be found/i.test(message)
+  );
+}
+
 export function isAppwriteSessionActive(): boolean {
   return established;
 }
@@ -67,6 +91,9 @@ async function currentSessionUserId(): Promise<string | null> {
 export async function ensureAppwriteSession(
   getClerkToken: () => Promise<string | null>
 ): Promise<string | null> {
+  // Already known dead for this run. Silent by design — see `unavailable`.
+  if (unavailable) return null;
+
   const existing = await currentSessionUserId();
   if (existing) {
     setAppwriteUserId(existing);
@@ -75,6 +102,7 @@ export async function ensureAppwriteSession(
   }
 
   if (!env.appwriteSessionFunctionId) {
+    unavailable = true;
     console.warn(
       '[appwrite] No session function configured ' +
         '(EXPO_PUBLIC_APPWRITE_SESSION_FUNCTION_ID). Running unauthenticated — ' +
@@ -103,6 +131,7 @@ export async function ensureAppwriteSession(
     };
 
     if (payload.error || !payload.userId || !payload.secret) {
+      unavailable = true;
       console.warn('[appwrite] Session function rejected the request:', payload.error);
       return null;
     }
@@ -112,7 +141,16 @@ export async function ensureAppwriteSession(
     established = true;
     return payload.userId;
   } catch (error) {
-    console.warn('[appwrite] Could not establish a session:', error);
+    // A paused or missing project is reported once and then never again; a
+    // genuinely transient failure (offline, timeout) stays quiet and is simply
+    // retried on the next call, because it may well succeed.
+    if (isPermanentlyUnavailable(error)) {
+      unavailable = true;
+      console.warn(
+        '[appwrite] Backend unavailable — running on local storage only. Sync is off for this session.',
+        error
+      );
+    }
     return null;
   }
 }
@@ -125,5 +163,8 @@ export async function clearAppwriteSession(): Promise<void> {
   } finally {
     setAppwriteUserId(null);
     established = false;
+    // A fresh sign-in deserves a fresh attempt — the project may have been
+    // resumed since the last one failed.
+    unavailable = false;
   }
 }

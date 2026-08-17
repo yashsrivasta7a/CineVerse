@@ -11,6 +11,10 @@ export interface VerdictRow {
   seen: number;
   /** Comma-separated TMDB genre ids, captured from the card at commit time. */
   genre_ids: string | null;
+  release_date: string | null;
+  original_language: string | null;
+  popularity: number | null;
+  vote_average: number | null;
   reaction: string | null;
   created_at: number;
   synced: number;
@@ -22,6 +26,11 @@ export interface RecordVerdictOptions {
   /** Genres of the judged title, so ranking never has to refetch it. */
   genreIds?: number[];
   reaction?: string | null;
+  /** Snapshot for the taste vector's era/language/reach/acclaim axes. */
+  date?: string | null;
+  originalLanguage?: string;
+  popularity?: number;
+  voteAverage?: number;
 }
 
 /**
@@ -54,14 +63,20 @@ export function recordVerdict(
   const genres = options.genreIds?.length ? options.genreIds.join(',') : null;
 
   db.runSync(
-    `INSERT INTO verdicts (media_type, tmdb_id, verdict, seen, genre_ids, reaction, created_at, synced)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+    `INSERT INTO verdicts (media_type, tmdb_id, verdict, seen, genre_ids, reaction,
+                           release_date, original_language, popularity, vote_average,
+                           created_at, synced)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
      ON CONFLICT(media_type, tmdb_id) DO UPDATE SET
        verdict    = excluded.verdict,
        seen       = excluded.seen,
-       -- A re-judgement can arrive from a screen that has no genre list to
-       -- hand. Keeping the stored one is strictly better than nulling it.
-       genre_ids  = COALESCE(excluded.genre_ids, verdicts.genre_ids),
+       -- A re-judgement can arrive from a screen that has no title data to
+       -- hand. Keeping the stored value is strictly better than nulling it.
+       genre_ids         = COALESCE(excluded.genre_ids, verdicts.genre_ids),
+       release_date      = COALESCE(excluded.release_date, verdicts.release_date),
+       original_language = COALESCE(excluded.original_language, verdicts.original_language),
+       popularity        = COALESCE(excluded.popularity, verdicts.popularity),
+       vote_average      = COALESCE(excluded.vote_average, verdicts.vote_average),
        reaction   = excluded.reaction,
        created_at = excluded.created_at,
        synced     = 0`,
@@ -72,6 +87,10 @@ export function recordVerdict(
       options.seen ? 1 : 0,
       genres,
       options.reaction ?? null,
+      options.date ?? null,
+      options.originalLanguage ?? null,
+      options.popularity ?? null,
+      options.voteAverage ?? null,
       Date.now(),
     ]
   );
@@ -86,24 +105,40 @@ export function getVerdictIds(mediaType: MediaType): number[] {
   return rows.map((row) => row.tmdb_id);
 }
 
-/** One judged title, reduced to what ranking actually reads. */
+/** One judged title, reduced to what the taste vector actually reads. */
 export interface TasteSignal {
   tmdbId: number;
   verdict: Verdict;
   seen: boolean;
   genreIds: number[];
+  /** Snapshot axes. Null on rows written before v4 — the builder skips them. */
+  date: string | null;
+  originalLanguage: string | null;
+  popularity: number | null;
+  voteAverage: number | null;
 }
 
 /**
- * The judged history, for `lib/recommend/rank`.
+ * The judged history, for `lib/recommend/taste`.
  *
  * Rows with no captured genres are dropped rather than returned empty: they
  * carry no usable signal, and letting them through would only dilute the
  * sample count that gates whether learning applies at all.
  */
 export function getTasteSignals(mediaType: MediaType): TasteSignal[] {
-  const rows = db.getAllSync<Pick<VerdictRow, 'tmdb_id' | 'verdict' | 'seen' | 'genre_ids'>>(
-    `SELECT tmdb_id, verdict, seen, genre_ids FROM verdicts
+  const rows = db.getAllSync<{
+    tmdb_id: number;
+    verdict: Verdict;
+    seen: number;
+    genre_ids: string;
+    release_date: string | null;
+    original_language: string | null;
+    popularity: number | null;
+    vote_average: number | null;
+  }>(
+    `SELECT tmdb_id, verdict, seen, genre_ids,
+            release_date, original_language, popularity, vote_average
+     FROM verdicts
      WHERE media_type = ? AND genre_ids IS NOT NULL AND genre_ids <> ''`,
     [mediaType]
   );
@@ -112,7 +147,11 @@ export function getTasteSignals(mediaType: MediaType): TasteSignal[] {
     tmdbId: row.tmdb_id,
     verdict: row.verdict,
     seen: row.seen === 1,
-    genreIds: row.genre_ids!.split(',').map(Number).filter(Number.isFinite),
+    genreIds: row.genre_ids.split(',').map(Number).filter(Number.isFinite),
+    date: row.release_date,
+    originalLanguage: row.original_language,
+    popularity: row.popularity,
+    voteAverage: row.vote_average,
   }));
 }
 
