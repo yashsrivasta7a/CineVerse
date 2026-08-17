@@ -7,7 +7,10 @@
     "icon": "./assets/images/logo.png",
     "scheme": "cineverse",
     "userInterfaceStyle": "dark",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yashsrivasta7a.cineverse",
@@ -61,14 +64,19 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "58be218d-2ba1-4d24-88d5-fcef5cb0a2e9"
+        "projectId": "151cad44-3cfe-44de-ae39-84430ed001db"
+      },
+      "expo-navigation-bar": {
+        "style": "light",
+        "hidden": true
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
+    "owner": "yash.ys7",
     "updates": {
-      "url": "https://u.expo.dev/58be218d-2ba1-4d24-88d5-fcef5cb0a2e9"
+      "url": "https://u.expo.dev/151cad44-3cfe-44de-ae39-84430ed001db"
     }
   }
 }
